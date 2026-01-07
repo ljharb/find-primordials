@@ -1,0 +1,22 @@
+{
+	"name": "find-primordials",
+	"version": "0.0.0",
+	"description": "Find primordials in use in the current project, so you can make your package more robust.",
+	"main": "index.js",
+	"exports": {
+		"./package.json": "./package.json"
+	},
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/ljharb/find-primordials.git"
+	},
+	"author": "Jordan Harband <ljharb@gmail.com>",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/ljharb/find-primordials/issues"
+	},
+	"homepage": "https://github.com/ljharb/find-primordials#readme"
+}
