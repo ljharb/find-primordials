@@ -1,0 +1,5 @@
+{
+	"name": "string-bin-test",
+	"version": "1.0.0",
+	"bin": "bin.js"
+}

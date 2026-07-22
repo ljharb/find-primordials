@@ -1,0 +1,20 @@
+{
+	"name": "tests",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Tests for find-primordials packages",
+	"scripts": {
+		"dependencies": "node -p \"process.env.npm_command\" | npx \"dt-clean@^1.2.2\" --auto"
+	},
+	"devDependencies": {
+		"c8": "^12.0.0",
+		"eslint": "^9.39.5 || ^10.7.0",
+		"eslint-plugin-find-primordials": "^0.0.0",
+		"find-primordials": "^0.0.0",
+		"find-primordials-cli": "^0.0.0",
+		"tape": "^5.10.2"
+	},
+	"engines": {
+		"node": "^24.18 || >= 26.5"
+	}
+}

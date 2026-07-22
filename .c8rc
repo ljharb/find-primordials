@@ -1,0 +1,14 @@
+{
+	"all": true,
+	"check-coverage": true,
+	"reporter": ["html", "text", "lcov"],
+	"include": ["packages/lib/**/*.mjs", "packages/cli/**/*.mjs", "packages/eslint-plugin/**/*.mjs"],
+	"exclude": [
+		"**/coverage/**",
+		"**/node_modules/**",
+		"eslint.config.mjs",
+		"packages/tests/**",
+		"**/*.d.*ts",
+		"release.mjs"
+	]
+}

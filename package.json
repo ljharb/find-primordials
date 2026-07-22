@@ -1,13 +1,19 @@
 {
-	"name": "find-primordials",
-	"version": "0.0.0",
+	"name": "find-primordials-monorepo",
+	"private": true,
 	"description": "Find primordials in use in the current project, so you can make your package more robust.",
-	"main": "index.js",
-	"exports": {
-		"./package.json": "./package.json"
-	},
+	"workspaces": [
+		"packages/*"
+	],
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"lint": "eslint .",
+		"postlint": "tsc && npm run --if-present --workspaces attw",
+		"pretest": "npm run lint",
+		"tests-only": "c8 tape 'packages/tests/*.test.mjs'",
+		"test": "npm run tests-only",
+		"posttest": "npx npm@\">= 10.2\" audit --production",
+		"preversion": "echo \"use \\`npm run --no-workspaces version\\` in a subpackage directly\" && exit 1",
+		"dependencies": "node -p \"process.env.npm_command\" | npx \"dt-clean@^1.2.2\" --auto"
 	},
 	"repository": {
 		"type": "git",
@@ -18,5 +24,17 @@
 	"bugs": {
 		"url": "https://github.com/ljharb/find-primordials/issues"
 	},
-	"homepage": "https://github.com/ljharb/find-primordials#readme"
+	"homepage": "https://github.com/ljharb/find-primordials#readme",
+	"devDependencies": {
+		"@arethetypeswrong/cli": "^0.18.5",
+		"@ljharb/eslint-config": "^22.2.3",
+		"@ljharb/tsconfig": "^0.3.2",
+		"@types/node": "^24.13.3",
+		"c8": "^12.0.0",
+		"eslint": "^9.39.5 || ^10.7.0",
+		"typescript": "^6.0.3"
+	},
+	"engines": {
+		"node": "^24.18 || >= 26.5"
+	}
 }

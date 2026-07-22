@@ -1,0 +1,17 @@
+{
+	"extends": "@ljharb/tsconfig",
+	"compilerOptions": {
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"target": "ESNext",
+		"types": ["node"]
+	},
+	"include": [
+		"packages/lib/**/*.mjs",
+		"packages/cli/**/*.mjs",
+		"packages/eslint-plugin/**/*.mjs"
+	],
+	"exclude": [
+		"coverage"
+	]
+}
