@@ -1,6 +1,6 @@
 {
 	"name": "find-primordials-cli",
-	"version": "0.0.0",
+	"version": "1.0.0",
 	"description": "CLI to find primordials in use in a JavaScript/TypeScript project",
 	"keywords": [
 		"primordials",
