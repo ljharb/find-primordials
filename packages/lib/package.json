@@ -47,7 +47,7 @@
 	"dependencies": {
 		"@typescript-eslint/parser": "^8.65.0",
 		"@typescript-eslint/typescript-estree": "^8.65.0",
-		"minimatch": "^10.2.5",
+		"minimatch": "^10.2.6",
 		"traverse": "^0.6.11"
 	},
 	"devDependencies": {
