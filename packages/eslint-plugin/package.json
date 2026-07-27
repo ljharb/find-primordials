@@ -43,7 +43,7 @@
 		"url": "https://github.com/sponsors/ljharb"
 	},
 	"dependencies": {
-		"find-primordials": "^0.0.0"
+		"find-primordials": "^1.0.0"
 	},
 	"devDependencies": {
 		"@eslint/core": "^1.2.1",

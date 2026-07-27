@@ -41,7 +41,7 @@
 		"url": "https://github.com/sponsors/ljharb"
 	},
 	"dependencies": {
-		"find-primordials": "^0.0.0",
+		"find-primordials": "^1.0.0",
 		"ignore": "^7.0.6",
 		"pargs": "^1.4.2"
 	},
