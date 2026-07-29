@@ -153,6 +153,12 @@ export function isCalled(node: ASTNode, parent: MaybeNode): boolean;
 export function isRepeatable(node: MaybeNode): boolean;
 export function isReevaluable(node: MaybeNode): boolean;
 export function literalIndex(arg: ASTNode): number | null;
+
+/**
+ * The primordial categories a literal receiver answers for, since a literal is its own
+ * type: `null` when the node is not a literal.
+ */
+export function literalCategories(node: ASTNode): string[] | null;
 export function startsAStatement(node: ASTNode, parent: MaybeNode): boolean;
 export function canBeArrayLiteral(args: ASTNode[]): boolean;
 export function voidNeedsParens(node: ASTNode, parent: MaybeNode): boolean;

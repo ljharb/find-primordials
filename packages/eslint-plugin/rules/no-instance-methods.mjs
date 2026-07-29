@@ -3,14 +3,17 @@ import {
 	allInstanceMethods,
 	ambiguousInstanceMethods,
 	getTypeFromServices,
-	isArrayOrIteratorType,
 	isBeingCached,
 	isModuleLevelScope,
 	isCalled,
 	isPrototypeAccess,
 	isReevaluable,
 	isRepeatable,
+	literalCategories,
 	literalIndex,
+	resolveCategory,
+	typeCategories,
+	typeGlobalName,
 } from '#/rules/utils';
 
 /** @import { ASTNode, RuleContext, RuleFixer } from '#/rules/utils' */
@@ -113,62 +116,56 @@ function handlePrototypeAccess(context, node, protoAccess) {
  * @param {ASTNode} node - The MemberExpression node
  * @param {string[]} categories - The categories the method name belongs to
  * @param {boolean} isAmbiguous - Whether the name maps to more than one category
- * @returns {{ certainty: string, detectedCategory: (string | null), skip: boolean, typed: boolean }}
+ * @returns {{ certainty: string, detectedCategory: (string | null), receiver: (string | null), skip: boolean, typed: boolean }}
  */
 export function determineCertainty(context, node, categories, isAmbiguous) {
-	const typeStr = getTypeFromServices(context, node.object);
-	let certainty = CERTAINTY_UNCERTAIN;
-	let detectedCategory = categories.length === 1 ? categories[0] : null; // eslint-disable-line no-magic-numbers
+	const detectedCategory = categories.length === 1 ? categories[0] : null; // eslint-disable-line no-magic-numbers
 
-	if (typeStr) {
-		const typeKind = isArrayOrIteratorType(typeStr);
-		if (typeKind === 'array' && categories.includes('Array')) {
+	// a literal receiver names its own type, with no checker needed
+	let typeCats = literalCategories(node.object);
+	let named = null;
+
+	if (!typeCats) {
+		const typeStr = getTypeFromServices(context, node.object);
+		typeCats = typeCategories(typeStr);
+		named = typeGlobalName(typeStr);
+	}
+
+	if (typeCats) {
+		const resolved = resolveCategory(typeCats, categories);
+		if (!resolved) {
+			/*
+			 * The receiver's type is known, and no primordial of that type owns this name:
+			 * `CharSet.test()` is not `RegExp.prototype.test`, and an iterator has no `push`.
+			 */
 			return {
-				certainty: CERTAINTY_CERTAIN,
-				detectedCategory: 'Array',
-				skip: false,
-				typed: true,
-			};
-		}
-		if (typeKind === 'iterator' && (categories.includes('Iterator') || categories.includes('AsyncIterator'))) {
-			const cat = categories.includes('Iterator') ? 'Iterator' : 'AsyncIterator';
-			return {
-				certainty: CERTAINTY_CERTAIN,
-				detectedCategory: cat,
-				skip: false,
-				typed: true,
-			};
-		}
-		if (typeKind === 'other') {
-			return {
-				certainty,
+				certainty: CERTAINTY_UNCERTAIN,
 				detectedCategory,
+				receiver: null,
 				skip: true,
 				typed: false,
-			}; // Not a primordial type
+			};
 		}
-	} else if (!isAmbiguous) {
-		/*
-		 * Only one category can own this name, so a call to it is a call to that
-		 * primordial. That is a claim about the name, not about the object, which is why
-		 * `typed` stays false.
-		 */
-		certainty = CERTAINTY_CERTAIN;
+		return {
+			certainty: CERTAINTY_CERTAIN,
+			detectedCategory: resolved,
+			// only worth recording where it says more than the category does
+			receiver: named === resolved ? null : named,
+			skip: false,
+			typed: true,
+		};
 	}
 
-	// Literal arrays are certain
-	let typed = false;
-	if (node.object.type === 'ArrayExpression') {
-		certainty = CERTAINTY_CERTAIN;
-		detectedCategory = 'Array';
-		typed = true;
-	}
-
+	/*
+	 * With no type to go on, only a name that one category owns outright is certain. That
+	 * is a claim about the name, not about the object, which is why `typed` stays false.
+	 */
 	return {
-		certainty,
+		certainty: isAmbiguous ? CERTAINTY_UNCERTAIN : CERTAINTY_CERTAIN,
 		detectedCategory,
+		receiver: null,
 		skip: false,
-		typed,
+		typed: false,
 	};
 }
 
@@ -225,18 +222,21 @@ export default {
 
 				const isAmbiguous = ambiguousInstanceMethods.has(methodName);
 
-				// Check if any category is ignored
-				if (categories.some((cat) => ignoreCategories.has(cat))) {
-					return;
-				}
-
 				const result = determineCertainty(context, node, categories, isAmbiguous);
 				if (result.skip) {
 					return;
 				}
 
-				// Check if detected category is ignored
-				if (result.detectedCategory && ignoreCategories.has(result.detectedCategory)) {
+				/*
+				 * Ignore by the category the receiver resolved to, and - where nothing
+				 * resolved - only once every category the name could belong to is ignored.
+				 * Ignoring `Array` should not silence the `TypedArray` call that merely
+				 * shares a method name with it.
+				 */
+				const ignored = result.detectedCategory
+					? ignoreCategories.has(result.detectedCategory)
+					: categories.every((cat) => ignoreCategories.has(cat));
+				if (ignored) {
 					return;
 				}
 
@@ -264,7 +264,8 @@ export default {
 
 				context.report({
 					data: {
-						category: result.detectedCategory || categories.join('/'),
+						// the type it actually is, where that says more than the category
+						category: result.receiver || result.detectedCategory || categories.join('/'),
 						method: methodName,
 					},
 					fix,

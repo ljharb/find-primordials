@@ -570,7 +570,7 @@ function getTypeInRange(typeChecker, sourceFile, start, end) {
  * @param {ASTNode} node - The receiver
  * @returns {string[] | null} null when the node is not a literal
  */
-function literalCategories(node) {
+export function literalCategories(node) {
 	if (node.type === 'ArrayExpression') {
 		return ['Array'];
 	}

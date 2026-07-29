@@ -29,6 +29,7 @@ export {
 	isCalled,
 	isReevaluable,
 	isRepeatable,
+	literalCategories,
 	literalIndex,
 	receiverLabel,
 	startsAStatement,

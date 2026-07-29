@@ -79,6 +79,19 @@ function process(arr) {
 }
 ```
 
+With a type-aware parser config, the receiver's type says which primordial a shared method name reached, and the message names it:
+
+```js
+function process(bytes, name, seen) {
+    bytes.join(',');    // Error: .join() on Uint8Array
+    name.slice(1);      // Error: .slice() on String
+    seen.has(name);     // Error: .has() on Map
+}
+```
+
+Every primordial resolves this way, not just arrays and iterators, and a receiver whose type owns no such method is not reported at all - a `CharSet` with its own `test` is not `RegExp.prototype.test`.
+See [the rule's docs](./docs/rules/no-instance-methods.md) for how that interacts with `ignoreCategories`.
+
 **Options:**
 
 ```js

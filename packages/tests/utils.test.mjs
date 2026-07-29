@@ -7,70 +7,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Import utils directly from source
 const {
 	getTypeFromServices,
-	isArrayOrIteratorType,
 	isBeingCached,
 	isModuleLevelScope,
 	isPrototypeAccess,
 	isStaticMethodAccess,
 } = await import(path.join(__dirname, '..', 'eslint-plugin', 'rules', 'utils.mjs'));
-
-test('utils.mjs - isArrayOrIteratorType', (t) => {
-	t.test('returns null for null/undefined input', (st) => {
-		st.equal(isArrayOrIteratorType(null), null, 'returns null for null');
-		st.equal(isArrayOrIteratorType(undefined), null, 'returns null for undefined');
-		st.equal(isArrayOrIteratorType(''), null, 'returns null for empty string');
-		st.end();
-	});
-
-	t.test('detects array types', (st) => {
-		st.equal(isArrayOrIteratorType('Array<string>'), 'array', 'detects Array<T>');
-		st.equal(isArrayOrIteratorType('string[]'), 'array', 'detects T[]');
-		st.equal(isArrayOrIteratorType('readonly string[]'), 'array', 'detects readonly T[]');
-		st.equal(isArrayOrIteratorType('Int8Array'), 'array', 'detects Int8Array');
-		st.equal(isArrayOrIteratorType('Uint8Array'), 'array', 'detects Uint8Array');
-		st.equal(isArrayOrIteratorType('Uint8ClampedArray'), 'array', 'detects Uint8ClampedArray');
-		st.equal(isArrayOrIteratorType('Int16Array'), 'array', 'detects Int16Array');
-		st.equal(isArrayOrIteratorType('Uint16Array'), 'array', 'detects Uint16Array');
-		st.equal(isArrayOrIteratorType('Int32Array'), 'array', 'detects Int32Array');
-		st.equal(isArrayOrIteratorType('Uint32Array'), 'array', 'detects Uint32Array');
-		st.equal(isArrayOrIteratorType('BigInt64Array'), 'array', 'detects BigInt64Array');
-		st.equal(isArrayOrIteratorType('BigUint64Array'), 'array', 'detects BigUint64Array');
-		st.equal(isArrayOrIteratorType('Float16Array'), 'array', 'detects Float16Array');
-		st.equal(isArrayOrIteratorType('Float32Array'), 'array', 'detects Float32Array');
-		st.equal(isArrayOrIteratorType('Float64Array'), 'array', 'detects Float64Array');
-		st.end();
-	});
-
-	t.test('detects iterator types', (st) => {
-		st.equal(isArrayOrIteratorType('Iterator<number>'), 'iterator', 'detects Iterator<T>');
-		st.equal(isArrayOrIteratorType('IterableIterator<string>'), 'iterator', 'detects IterableIterator<T>');
-		st.equal(isArrayOrIteratorType('Generator<number>'), 'iterator', 'detects Generator<T>');
-		st.equal(isArrayOrIteratorType('AsyncIterator<number>'), 'iterator', 'detects AsyncIterator<T>');
-		st.equal(isArrayOrIteratorType('AsyncGenerator<number>'), 'iterator', 'detects AsyncGenerator<T>');
-		st.end();
-	});
-
-	t.test('detects non-array types', (st) => {
-		st.equal(isArrayOrIteratorType('Map<string, number>'), 'other', 'detects Map');
-		st.equal(isArrayOrIteratorType('Set<string>'), 'other', 'detects Set');
-		st.equal(isArrayOrIteratorType('WeakMap<object, number>'), 'other', 'detects WeakMap');
-		st.equal(isArrayOrIteratorType('WeakSet<object>'), 'other', 'detects WeakSet');
-		st.equal(isArrayOrIteratorType('Promise<string>'), 'other', 'detects Promise');
-		st.equal(isArrayOrIteratorType('Object'), 'other', 'detects Object');
-		st.equal(isArrayOrIteratorType('Record<string, number>'), 'other', 'detects Record');
-		st.equal(isArrayOrIteratorType('{ foo: string }'), 'other', 'detects object literal type');
-		st.end();
-	});
-
-	t.test('returns null for unknown types', (st) => {
-		st.equal(isArrayOrIteratorType('string'), null, 'returns null for string');
-		st.equal(isArrayOrIteratorType('number'), null, 'returns null for number');
-		st.equal(isArrayOrIteratorType('CustomType'), null, 'returns null for custom type');
-		st.end();
-	});
-
-	t.end();
-});
 
 test('utils.mjs - isPrototypeAccess', (t) => {
 	t.test('returns null for non-MemberExpression', (st) => {

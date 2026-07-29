@@ -11,15 +11,20 @@ import {
 	isCalled,
 	isReevaluable,
 	isRepeatable,
+	literalCategories,
 	literalIndex,
 	primordials,
+	resolveCategory,
 	startsAStatement,
+	typeCategories,
+	typeGlobalName,
 	voidNeedsParens,
 } from 'find-primordials';
 
 /*
- * The rewrites here and the ones the CLI applies have to agree on what is safe,
- * so both decide with the same predicates rather than their own copies.
+ * The rewrites here and the ones the CLI applies have to agree on what is safe, and both
+ * have to resolve a receiver's type to the same primordial, so both decide with the same
+ * predicates rather than their own copies.
  */
 export {
 	allGlobals,
@@ -33,9 +38,13 @@ export {
 	isCalled,
 	isReevaluable,
 	isRepeatable,
+	literalCategories,
 	literalIndex,
 	primordials,
+	resolveCategory,
 	startsAStatement,
+	typeCategories,
+	typeGlobalName,
 	voidNeedsParens,
 };
 
@@ -236,67 +245,3 @@ export function getTypeFromServices(context, node) {
 	}
 }
 
-/** @param {string} typeStr */
-// Determine if a type string indicates an array or iterator
-export function isArrayOrIteratorType(typeStr) {
-	if (!typeStr) {
-		return null;
-	}
-
-	const arrayPatterns = [
-		/^Array</,
-		/\[\]$/,
-		/^readonly\s+\w+\[\]$/,
-		/^Int8Array$/,
-		/^Uint8Array$/,
-		/^Uint8ClampedArray$/,
-		/^Int16Array$/,
-		/^Uint16Array$/,
-		/^Int32Array$/,
-		/^Uint32Array$/,
-		/^BigInt64Array$/,
-		/^BigUint64Array$/,
-		/^Float16Array$/,
-		/^Float32Array$/,
-		/^Float64Array$/,
-	];
-
-	const iteratorPatterns = [
-		/^Iterator</,
-		/^IterableIterator</,
-		/^Generator</,
-		/^AsyncIterator</,
-		/^AsyncGenerator</,
-	];
-
-	for (let i = 0; i < arrayPatterns.length; i += 1) {
-		if (arrayPatterns[i].test(typeStr)) {
-			return 'array';
-		}
-	}
-
-	for (let i = 0; i < iteratorPatterns.length; i += 1) {
-		if (iteratorPatterns[i].test(typeStr)) {
-			return 'iterator';
-		}
-	}
-
-	const nonArrayPatterns = [
-		/^Map</,
-		/^Set</,
-		/^WeakMap</,
-		/^WeakSet</,
-		/^Promise</,
-		/^Object$/,
-		/^Record</,
-		/^\{/,
-	];
-
-	for (let i = 0; i < nonArrayPatterns.length; i += 1) {
-		if (nonArrayPatterns[i].test(typeStr)) {
-			return 'other';
-		}
-	}
-
-	return null;
-}

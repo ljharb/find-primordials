@@ -857,16 +857,61 @@ test('no-instance-methods - type-aware detection', (t) => {
 		st.end();
 	});
 
-	t.test('a non-primordial type is skipped', (st) => {
-		const messages = runInstanceRule(makeMemberCall('m', 'push'), 'Map<string, number>');
-		st.equal(messages.length, 0, 'a Map receiver is not a primordial array');
+	t.test('a type that owns no such method is skipped', (st) => {
+		st.equal(runInstanceRule(makeMemberCall('m', 'push'), 'Map<string, number>').length, 0, 'a Map has no push to reach');
+		st.equal(runInstanceRule(makeMemberCall('s', 'push'), 'string').length, 0, 'and neither does a string');
 		st.end();
 	});
 
-	t.test('an unrecognized type falls back to uncertain', (st) => {
-		const messages = runInstanceRule(makeMemberCall('s', 'push'), 'string');
+	t.test('every primordial resolves, not just arrays and iterators', (st) => {
+		for (const [
+			typeString, method, category,
+		] of [
+				[
+					'string', 'slice', 'String',
+				],
+				[
+					'Map<string, number>', 'has', 'Map',
+				],
+				[
+					'Set<string>', 'add', 'Set',
+				],
+				[
+					'Date', 'getTime', 'Date',
+				],
+				[
+					'RegExp', 'test', 'RegExp',
+				],
+				[
+					'Promise<string>', 'then', 'Promise',
+				],
+				[
+					'ArrayBuffer', 'slice', 'ArrayBuffer',
+				],
+				[
+					'number', 'toFixed', 'Number',
+				],
+			]) {
+			const messages = runInstanceRule(makeMemberCall('r', method), typeString);
+			st.equal(messages.length, 1, `${typeString} reports .${method}()`);
+			st.equal(messages[0].data.category, category, `and names it ${category}`);
+		}
+		st.end();
+	});
+
+	t.test('names the type it actually is, not the family', (st) => {
+		// `join` is on Array and TypedArray, so which typed array it is is what you need
+		const messages = runInstanceRule(makeMemberCall('bytes', 'join'), 'Uint8Array<ArrayBufferLike>');
+		st.equal(messages.length, 1, 'reports once');
+		st.equal(messages[0].data.category, 'Uint8Array', 'names the typed array itself');
+		st.ok(messages[0].message?.includes?.('Uint8Array') ?? true, 'and carries it into the message');
+		st.end();
+	});
+
+	t.test('an unresolved type is still uncertain', (st) => {
+		const messages = runInstanceRule(makeMemberCall('x', 'includes'), 'any');
 		st.equal(messages.length, 1, 'still reports');
-		st.equal(messages[0].messageId, 'instanceMethodUncertain', 'is uncertain when the type is unrecognized');
+		st.equal(messages[0].messageId, 'instanceMethodUncertain', 'is uncertain when the type says nothing');
 		st.end();
 	});
 
@@ -886,6 +931,40 @@ test('no-instance-methods - additional branches', (t) => {
 			'find-primordials/no-instance-methods': ['error', { ignoreCategories: ['Array'] }],
 		});
 		st.equal(messages.length, 0, 'the Array detected-category is ignored');
+
+		/*
+		 * `at` is on Array, String, and TypedArray, so the name alone is not ignorable -
+		 * only the category the array literal resolves it to is.
+		 */
+		const resolved = lint('[1, 2].at(0);', {
+			'find-primordials/no-instance-methods': ['error', { ignoreCategories: ['Array'] }],
+		});
+		st.equal(resolved.length, 0, 'and so is one an ambiguous name resolved to');
+
+		const notIgnored = lint('[1, 2].at(0);', {
+			'find-primordials/no-instance-methods': ['error', { ignoreCategories: ['Map'] }],
+		});
+		st.equal(notIgnored.length, 1, 'while an unrelated category ignores nothing');
+
+		/*
+		 * With no type to resolve `includes` - it is on Array, String, and TypedArray - the
+		 * finding survives until every one of them is ignored.
+		 */
+		const someIgnored = lint('function f(x) { return x.includes(1); }', {
+			'find-primordials/no-instance-methods': ['error', { ignoreCategories: ['Array'] }],
+		});
+		st.equal(someIgnored.length, 1, 'one ignored candidate does not silence an unresolved finding');
+
+		const allIgnored = lint('function f(x) { return x.includes(1); }', {
+			'find-primordials/no-instance-methods': [
+				'error', {
+					ignoreCategories: [
+						'Array', 'String', 'TypedArray',
+					],
+				},
+			],
+		});
+		st.equal(allIgnored.length, 0, 'ignoring every candidate does silence it');
 		st.end();
 	});
 
