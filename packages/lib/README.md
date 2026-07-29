@@ -120,6 +120,21 @@ Analyzes a single file and returns findings.
 - `includeUncertain` - Include uncertain findings (default: `true`)
 - `isSafeFile` - Function to determine if file is "safe" (default: checks for bin/test files)
 
+### Type Resolution
+
+A method name that more than one primordial owns - `join` is on both `Array` and `TypedArray`, `slice` on five - can only be pinned down by the receiver's type, so that is where a finding's certainty comes from.
+
+Types come from the file's own project: the nearest `tsconfig.json` at or above it, with the compiler options that config sets and alongside every other file it covers.
+That is the same view an editor has, which matters because some types are reachable no other way - node's builtins are ambient `declare module`s inside `@types/node`, and a package like that only reaches a program by being named in `types`, or by a `/// <reference types>` somewhere else in the project.
+A file typed on its own sees `path` as `any`, and every `path.join()` becomes an uncertain finding.
+
+A project is read once and its program built once, however many of its files are analyzed.
+
+A file with no `tsconfig.json` above it, or one its project does not cover, is typed on its own instead, against the `@types` directories found by walking up from it.
+Resolving those types costs real time, so analyzing a project that has no `tsconfig.json` is slower than one that does - and less accurate, since nothing outside the file itself can inform it.
+
+When `parserServices` is passed - as the ESLint plugin does - those are used instead, and no program is built.
+
 ### `analyzeFiles(files, options)`
 
 Analyzes multiple files sequentially.

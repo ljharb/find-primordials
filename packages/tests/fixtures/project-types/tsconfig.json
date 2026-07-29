@@ -1,0 +1,14 @@
+{
+	"compilerOptions": {
+		"checkJs": true,
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"noEmit": true,
+		"target": "ESNext"
+	},
+	"include": [
+		"globals.d.ts",
+		"first.js",
+		"second.js"
+	]
+}

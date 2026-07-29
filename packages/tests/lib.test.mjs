@@ -163,6 +163,68 @@ test('analyzeFile - reports through an array type alias', (t) => {
 	t.end();
 });
 
+test('analyzeFile - types a file in its own project', (t) => {
+	const projectDir = path.join(fixturesDir, 'project-types');
+
+	function joinFinding(filePath) {
+		return analyzeFile(filePath, {}).findings.find((f) => f.name === 'join');
+	}
+
+	/*
+	 * `ProjectRows` is declared in a sibling `.d.ts` the tsconfig covers, so it resolves
+	 * only for a program built from the whole project - a file typed on its own never
+	 * sees it. Both project files are checked, so the project is read once and its program
+	 * built once and reused.
+	 */
+	const first = joinFinding(path.join(projectDir, 'first.js'));
+	t.equal(first?.certainty, 'certain', 'a project global types the receiver');
+	t.equal(first?.category, 'Array', 'and resolves the ambiguous method to Array');
+
+	const second = joinFinding(path.join(projectDir, 'second.js'));
+	t.equal(second?.certainty, 'certain', 'a second file in the same project types too');
+
+	// the tsconfig does not cover this one, so it falls back to being typed on its own
+	const outside = joinFinding(path.join(projectDir, 'outside.js'));
+	t.equal(outside?.certainty, 'uncertain', 'a file its project does not cover is typed alone');
+
+	// a tsconfig that cannot be parsed leaves the file typed on its own rather than erroring
+	const broken = path.join(fixturesDir, 'unreadable-project', 'broken.js');
+	const result = analyzeFile(broken, {});
+	t.notOk(result.error, 'an unreadable tsconfig is not an error');
+	t.equal(joinFinding(broken)?.certainty, 'uncertain', 'and the file is typed on its own');
+
+	t.end();
+});
+
+test('analyzeFile - types the whole receiver, not its leftmost name', (t) => {
+	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'primordials-receiver-'));
+	const testFile = path.join(tmpDir, 'receiver.js');
+
+	/*
+	 * Both receivers are arrays, and neither is the name they start with: typing `service`
+	 * instead of `service.rows` or `service.getRows()` finds an object, which reads as a
+	 * concrete non-primordial type and drops the finding.
+	 */
+	fs.writeFileSync(testFile, [
+		'/** @typedef {{ getRows: () => string[], rows: string[] }} Service */',
+		'',
+		'/** @type {Service} */',
+		'var service = { getRows: function () { return []; }, rows: [] };',
+		'',
+		'function render() {',
+		'	return service.rows.join(\',\') + service.getRows().join(\';\');',
+		'}',
+	].join('\n'));
+
+	const joins = analyzeFile(testFile, {}).findings.filter((f) => f.name === 'join');
+	t.equal(joins.length, 2, 'both receivers are typed'); // eslint-disable-line no-magic-numbers
+	t.deepEqual(joins.map((f) => f.certainty), ['certain', 'certain'], 'a property receiver and a call receiver are both certain');
+	t.deepEqual(joins.map((f) => f.category), ['Array', 'Array'], 'and both resolve to Array');
+
+	fs.rmSync(tmpDir, { recursive: true });
+	t.end();
+});
+
 test('analyzeFile - a data property named after a method is not a method', (t) => {
 	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'primordials-reads-'));
 

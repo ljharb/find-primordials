@@ -144,7 +144,7 @@ import {
  * @property {((filePath: string) => boolean) | null} [isSafeFile]
  * @property {number} [concurrency]
  * @property {string} [workerPath] - Overrides the worker module path (test seam)
- * @property {(filePath: string, sourceCode: string) => { sourceFile: (import('typescript').SourceFile | undefined), typeChecker: import('typescript').TypeChecker }} [typeProgramFactory] - Overrides standalone TypeScript program creation (test seam)
+ * @property {(filePath: string, sourceCode: string) => { sourceFile: (import('typescript').SourceFile | undefined), typeChecker: import('typescript').TypeChecker }} [typeProgramFactory] - Overrides TypeScript program creation (test seam)
  */
 
 /** @typedef {{ error: string, file: string }} AnalysisError */
@@ -329,12 +329,137 @@ function findTypeRoots(filePath) {
 }
 
 /**
- * Create a TypeScript program for standalone type checking.
+ * A path in the form TypeScript reports one, so a path from either side compares equal.
+ * @param {string} filePath - The path to normalize
+ * @returns {string}
+ */
+function normalizePath(filePath) {
+	return path.resolve(filePath).split(path.sep).join('/');
+}
+
+/** @type {Map<string, string | null>} Cache for the nearest tsconfig by directory */
+const tsconfigCache = new Map();
+
+/**
+ * The `tsconfig.json` nearest to a file, which is the project an editor would type that
+ * file in (memoized).
+ * @param {string} filePath - The file to find a project for
+ * @returns {string | null} null when no project sits above the file
+ */
+function findTsconfig(filePath) {
+	const startDir = path.dirname(path.resolve(filePath));
+
+	if (tsconfigCache.has(startDir)) {
+		return /** @type {string | null} */ (tsconfigCache.get(startDir));
+	}
+
+	/** @type {string | null} */
+	let found = null;
+	let dir = startDir;
+	const { root } = path.parse(dir);
+
+	while (!found && dir !== root) {
+		const candidate = path.join(dir, 'tsconfig.json');
+		if (fs.existsSync(candidate)) {
+			found = candidate;
+		} else {
+			dir = path.dirname(dir);
+		}
+	}
+
+	tsconfigCache.set(startDir, found);
+	return found;
+}
+
+/**
+ * A project, as its `tsconfig.json` describes it. The program is built on first use, so
+ * a project whose files are never typed costs nothing, and one whose files are all typed
+ * costs a single program.
+ * @typedef {object} Project
+ * @property {Set<string>} fileNames
+ * @property {() => Program} getProgram
+ */
+
+/** @type {Map<string, Project | null>} Cache for projects by tsconfig path */
+const projectCache = new Map();
+
+/**
+ * Read the project a `tsconfig.json` describes.
+ * @param {string} configPath - The `tsconfig.json` to read
+ * @returns {Project | null} null when the config cannot be read
+ */
+function readProject(configPath) {
+	const { config, error } = ts.readConfigFile(configPath, (fileName) => ts.sys.readFile(fileName));
+	if (error) {
+		return null;
+	}
+
+	/*
+	 * `allowJs` is forced on so a project that compiles only TypeScript still covers the
+	 * JavaScript beside it, and `noEmit` so nothing here can write to disk.
+	 */
+	const parsed = ts.parseJsonConfigFileContent(
+		config,
+		ts.sys,
+		path.dirname(configPath),
+		{ allowJs: true, noEmit: true },
+		configPath,
+	);
+
+	/** @type {Program | null} */
+	let program = null;
+
+	return {
+		fileNames: new Set(parsed.fileNames.map(normalizePath)),
+		getProgram() {
+			if (!program) {
+				program = ts.createProgram(parsed.fileNames, parsed.options);
+			}
+			return program;
+		},
+	};
+}
+
+/**
+ * Type a file in its own project: with the compiler options its `tsconfig.json` sets, and
+ * alongside every other file that project covers. A type that only a whole project can
+ * reach resolves here and nowhere else - node's builtins are ambient `declare module`s
+ * inside `@types/node`, and a package like that reaches a program by being named in
+ * `types`, or by a `/// <reference types>` in some other file of the project.
+ * @param {string} filePath - The file to type
+ * @returns {{ sourceFile: SourceFile | undefined, typeChecker: TypeChecker } | null} null when the file has no project of its own
+ */
+function projectTypeProgram(filePath) {
+	const configPath = findTsconfig(filePath);
+	if (!configPath) {
+		return null;
+	}
+
+	if (!projectCache.has(configPath)) {
+		projectCache.set(configPath, readProject(configPath));
+	}
+	const project = projectCache.get(configPath);
+
+	// a file its project does not cover is typed on its own, the way a file with no project is
+	const resolved = normalizePath(filePath);
+	if (!project?.fileNames.has(resolved)) {
+		return null;
+	}
+
+	const program = project.getProgram();
+	return {
+		sourceFile: program.getSourceFile(resolved),
+		typeChecker: program.getTypeChecker(),
+	};
+}
+
+/**
+ * Create a TypeScript program for a file with no project of its own.
  * @param {string} filePath - The file to check
  * @param {string} sourceCode - Its source
  * @returns {{ sourceFile: SourceFile | undefined, typeChecker: TypeChecker }}
  */
-function createTypeProgram(filePath, sourceCode) {
+function createStandaloneProgram(filePath, sourceCode) {
 	const typeRoots = findTypeRoots(filePath);
 
 	const compilerOptions = {
@@ -342,12 +467,23 @@ function createTypeProgram(filePath, sourceCode) {
 		checkJs: true,
 		esModuleInterop: true,
 		lib: ['lib.esnext.full.d.ts'],
-		module: ts.ModuleKind.ESNext,
+		module: ts.ModuleKind.NodeNext,
 		moduleResolution: ts.ModuleResolutionKind.NodeNext,
 		noEmit: true,
 		skipLibCheck: true,
 		target: ts.ScriptTarget.ESNext,
-		typeRoots: typeRoots.length > 0 ? typeRoots : void undefined,
+		/*
+		 * Always the roots found above the file, even when there are none: left unset,
+		 * TypeScript would reach for whatever `@types` sit above the working directory,
+		 * which has nothing to do with the file being analyzed.
+		 */
+		typeRoots,
+		/*
+		 * TypeScript 6 no longer includes every `@types` package by default; `"*"` asks for
+		 * the old behavior. Without it there is no `@types/node`, and since node's builtins
+		 * are ambient `declare module`s inside it, every one of them types as `any`.
+		 */
+		types: ['*'],
 	};
 
 	const host = ts.createCompilerHost(compilerOptions);
@@ -367,17 +503,31 @@ function createTypeProgram(filePath, sourceCode) {
 }
 
 /**
- * Find the innermost TypeScript node at a source position.
+ * Create a TypeScript program to type a file with: its own project's when it has one, and
+ * a standalone one otherwise.
+ * @param {string} filePath - The file to check
+ * @param {string} sourceCode - Its source
+ * @returns {{ sourceFile: SourceFile | undefined, typeChecker: TypeChecker }}
+ */
+function createTypeProgram(filePath, sourceCode) {
+	return projectTypeProgram(filePath) || createStandaloneProgram(filePath, sourceCode);
+}
+
+/**
+ * Find the innermost TypeScript node spanning a source range. The whole range matters:
+ * the node at a range's first character is its leftmost leaf, which for `f(x).at(0)` is
+ * `f` - a function - rather than the call whose result `at` is reached through.
  * @param {SourceFile} sourceFile - The source file
- * @param {number} pos - The character offset
+ * @param {number} start - The range's first character offset
+ * @param {number} end - The offset just past the range's last character
  * @returns {TSNode | null}
  */
-function findNodeAtPosition(sourceFile, pos) {
+function findNodeInRange(sourceFile, start, end) {
 	/** @type {TSNode | null} */
 	let found = null;
 	/** @param {TSNode} node */
 	function visit(node) {
-		if (pos >= node.getStart() && pos < node.getEnd()) {
+		if (node.getStart() <= start && node.getEnd() >= end) {
 			found = node;
 			ts.forEachChild(node, visit);
 		}
@@ -387,18 +537,19 @@ function findNodeAtPosition(sourceFile, pos) {
 }
 
 /**
- * Get the type at a source position from a standalone TypeScript program.
+ * Get the type of a source range from a TypeScript program.
  * @param {TypeChecker | null} typeChecker - The type checker
  * @param {SourceFile | null} sourceFile - The source file
- * @param {number} pos - The character offset
+ * @param {number} start - The range's first character offset
+ * @param {number} end - The offset just past the range's last character
  * @returns {string | null}
  */
-function getTypeAtPosition(typeChecker, sourceFile, pos) {
+function getTypeInRange(typeChecker, sourceFile, start, end) {
 	if (!typeChecker || !sourceFile) {
 		return null;
 	}
 	try {
-		const tsNode = findNodeAtPosition(sourceFile, pos);
+		const tsNode = findNodeInRange(sourceFile, start, end);
 		if (!tsNode) {
 			return null;
 		}
@@ -1109,7 +1260,7 @@ export function analyzeFile(filePath, options = {}) {
 			// Use ESLint parser services if available
 			tsTypeChecker = /** @type {TypeChecker} */ (/** @type {unknown} */ (parserServices));
 		} else {
-			// Create standalone TypeScript program for type inference (including JSDoc)
+			// Type the file through its own project, or on its own when it has none
 			try {
 				const tsProgram = typeProgramFactory(filePath, sourceCode);
 				tsTypeChecker = tsProgram.typeChecker;
@@ -1130,7 +1281,7 @@ export function analyzeFile(filePath, options = {}) {
 		if (parserServices?.program) {
 			return getTypeFromServices(node, parserServices);
 		}
-		return getTypeAtPosition(tsTypeChecker, tsSourceFile, node.range[0]);
+		return getTypeInRange(tsTypeChecker, tsSourceFile, node.range[0], node.range[1]); // eslint-disable-line no-magic-numbers
 	}
 
 	/**

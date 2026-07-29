@@ -133,6 +133,17 @@ Use with:
 find-primordials ./src --ignore-config .primordials-ignore.json
 ```
 
+## Uncertain Findings
+
+A method name that more than one primordial owns - `join` is on both `Array` and `TypedArray`, `slice` on five - can only be pinned down by the receiver's type.
+A finding is uncertain when that type could not be determined, and `--no-uncertain` drops those.
+
+Types come from the file's own project: the nearest `tsconfig.json` at or above it, with the compiler options that config sets and alongside every other file it covers - the same view an editor has.
+So a project whose `tsconfig.json` covers the files being analyzed reports far fewer uncertain findings than one where it does not, since a file typed on its own cannot reach a type that only the project provides.
+
+A file with no `tsconfig.json` above it is typed on its own instead, against the `@types` directories found by walking up from it.
+That is both slower and less accurate than typing it in its project.
+
 ## Output Formats
 
 ### TAP (Default)
