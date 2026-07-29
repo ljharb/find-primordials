@@ -164,9 +164,9 @@ test('analyzeFile - type inference via the standalone TypeScript program', (t) =
 	const arr = analyze('/** @type {number[]} */\nvar a = [];\nfunction fn() { return a.includes(1); }', {});
 	t.ok(arr.some((f) => f.name === 'includes' && f.certainty === 'certain'), 'typed array -> certain');
 
-	// an ambiguous method on a value typed as a non-array/iterator is dropped
+	// an ambiguous method resolves to whichever primordial the receiver's type names
 	const other = analyze('/** @type {string} */\nvar s = "";\nfunction fn() { return s.includes("x"); }', {});
-	t.notOk(other.some((f) => f.name === 'includes'), 'typed string -> not an Array finding');
+	t.ok(other.some((f) => f.name === 'includes' && f.certainty === 'certain' && f.category === 'String'), 'typed string -> certain String');
 
 	// a non-ambiguous method on a value known not to be its primordial is dropped
 	const notPrim = analyze('/** @type {{ test: (x: number) => boolean }} */\nvar o = { test() { return true; } };\nfunction fn() { return o.test(1); }', {});

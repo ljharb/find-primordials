@@ -138,6 +138,9 @@ find-primordials ./src --ignore-config .primordials-ignore.json
 A method name that more than one primordial owns - `join` is on both `Array` and `TypedArray`, `slice` on five - can only be pinned down by the receiver's type.
 A finding is uncertain when that type could not be determined, and `--no-uncertain` drops those.
 
+Every primordial resolves this way, not just arrays: a `Map` receiver resolves `.has()` to `Map`, a `Date` resolves `.getTime()` to `Date`, a `string` resolves `.slice()` to `String`.
+A receiver whose type owns no such method is not reported at all - a `CharSet` with its own `test` is not `RegExp.prototype.test`.
+
 Types come from the file's own project: the nearest `tsconfig.json` at or above it, with the compiler options that config sets and alongside every other file it covers - the same view an editor has.
 So a project whose `tsconfig.json` covers the files being analyzed reports far fewer uncertain findings than one where it does not, since a file typed on its own cannot reach a type that only the project provides.
 
@@ -151,11 +154,18 @@ That is both slower and less accurate than typing it in its project.
 ```
 TAP version 14
 # src/index.js
-not ok 1 - .push() at src/index.js:10:5 - Array
-not ok 2 - .map() at src/index.js:15:10 - Array
-1..2
-# 2 primordial usages found
+not ok 1 - src/index.js:10:5 - .push() on Array
+not ok 2 - src/index.js:15:10 - .slice() on String
+not ok 3 - src/index.js:22:7 - .join() on Uint8Array
+not ok 4 - src/index.js:31:3 - .slice() [uncertain - could not determine type]
+1..4
+# 4 primordial usages found
+# (3 certain, 1 uncertain)
 ```
+
+Each finding names the type the method was reached through, since the name alone rarely does: `slice` belongs to `Array`, `ArrayBuffer`, `SharedArrayBuffer`, `String`, and `TypedArray`, and which one you hit decides whether you reach for `ArrayPrototypeSlice` or `StringPrototypeSlice`.
+Where the type is more specific than the category - the typed array it actually is, the `Error` subclass it actually is - that is what gets named.
+A finding whose receiver could not be typed names nothing, and says so.
 
 ### JSON
 
@@ -177,11 +187,14 @@ not ok 2 - .map() at src/index.js:15:10 - Array
 
 ```
 src/index.js
-   10:5   error    .push()                         Array
+   10:5   error    .push() on Array                Array
+   22:7   error    .join() on Uint8Array           TypedArray
    15:10  warning  .map()                          Array/Iterator
 
-X 2 problems (1 error, 1 warning)
+X 3 problems (2 errors, 1 warning)
 ```
+
+The last column is the category the finding is grouped under, which is the family rather than the specific type: a `Uint8Array` finding groups with every other `TypedArray`.
 
 ## Auto-fix
 

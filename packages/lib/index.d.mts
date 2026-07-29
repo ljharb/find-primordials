@@ -64,6 +64,8 @@ export type Finding = {
 	column?: number;
 	category?: string | null;
 	possibleCategories?: string[];
+	/** The global the receiver's type names, where that says more than the category: `Uint8Array` rather than `TypedArray`. */
+	receiver?: string;
 };
 
 /** A parse/read error encountered while analyzing a file. */
@@ -163,6 +165,13 @@ export function describeType<T extends TypeLike>(typeChecker: TypeCheckerLike<T>
 // ---- formatting / grouping ----
 
 export function categoryLabel(finding: Finding): string;
+
+/**
+ * What a finding says the receiver is: the global its type names when that is more
+ * specific than the category, the category otherwise, and the empty string when the type
+ * could not be determined.
+ */
+export function receiverLabel(finding: Finding): string;
 export function groupFindingsByCategory(findings: Finding[]): Record<string, Finding[]>;
 export function formatFindingAsTAP(finding: Finding, testNum: number): string;
 export function formatAsTAP(findings: Finding[], options?: { showUncertain?: boolean }): string;
@@ -196,6 +205,9 @@ export {
 	ambiguousInstanceMethods,
 	globalToCategory,
 	primordials,
+	resolveCategory,
+	typeCategories,
+	typeGlobalName,
 	typedArrayGlobals,
 } from './primordials.mjs';
 export type { PrimordialCategory } from './primordials.mjs';

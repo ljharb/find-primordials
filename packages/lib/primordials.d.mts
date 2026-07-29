@@ -30,3 +30,23 @@ export const typedArrayGlobals: Set<string>;
 
 /** Instance method names owned by more than one category. */
 export const ambiguousInstanceMethods: Set<string>;
+
+/**
+ * The primordial categories a type answers for, most specific first: `null` when the type
+ * names nothing in particular, and empty when it names something concrete that is not a
+ * primordial.
+ */
+export function typeCategories(typeStr: string | null | undefined): string[] | null;
+
+/**
+ * The primordial global a type names, where that is more specific than the category it
+ * belongs to: `Uint8Array` rather than the `TypedArray` family, `TypeError` rather than
+ * plain `Error`. `null` when the type names no primordial global.
+ */
+export function typeGlobalName(typeStr: string | null | undefined): string | null;
+
+/**
+ * The category a receiver's type resolves a method name to: the most specific of the
+ * type's categories that owns the name, or `null` when the type owns no such method.
+ */
+export function resolveCategory(typeCats: string[], categories: string[]): string | null;

@@ -14,6 +14,7 @@ import {
 	formatFindingAsTAP,
 	isSafeFile,
 	normalizeIgnoreConfig,
+	receiverLabel,
 	shouldIgnoreFile,
 } from 'find-primordials';
 import ignore from 'ignore';
@@ -202,7 +203,8 @@ function describeFinding(finding) {
 		return 'spread syntax (...)';
 	}
 	if (finding.type === 'instanceMethod') {
-		return `.${finding.name}()`;
+		const receiver = receiverLabel(finding);
+		return receiver ? `.${finding.name}() on ${receiver}` : `.${finding.name}()`;
 	}
 	if (finding.type === 'staticMethod' || finding.type === 'prototypeAccess') {
 		return `${finding.name}()`;

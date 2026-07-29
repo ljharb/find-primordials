@@ -16,6 +16,9 @@ import {
 	ambiguousInstanceMethods,
 	globalToCategory,
 	primordials,
+	resolveCategory,
+	typeCategories,
+	typeGlobalName,
 } from '#/primordials';
 
 /**
@@ -70,6 +73,7 @@ import {
  * @property {ASTNode[]} specifiers
  * @property {(ASTNode | null)[]} elements
  * @property {ASTNode[]} comments
+ * @property {{ pattern: string, flags: string }} [regex] - Present only on a regex Literal
  * @property {unknown} value
  * @property {unknown} body
  * @property {[number, number]} range
@@ -96,6 +100,7 @@ import {
  * @property {number} [column]
  * @property {string | null} [category]
  * @property {string[]} [possibleCategories]
+ * @property {string} [receiver] - The global the receiver's type names, where that says more than the category: `Uint8Array` rather than `TypedArray`
  */
 
 /**
@@ -559,112 +564,38 @@ function getTypeInRange(typeChecker, sourceFile, start, end) {
 	}
 }
 
-const ARRAY_PATTERNS = [
-	/^Array</,
-	/\[\]$/,
-	/^readonly\s+\w+\[\]$/,
-	/^Int8Array$/,
-	/^Uint8Array$/,
-	/^Uint8ClampedArray$/,
-	/^Int16Array$/,
-	/^Uint16Array$/,
-	/^Int32Array$/,
-	/^Uint32Array$/,
-	/^BigInt64Array$/,
-	/^BigUint64Array$/,
-	/^Float16Array$/,
-	/^Float32Array$/,
-	/^Float64Array$/,
-];
-
-const ITERATOR_PATTERNS = [
-	/^Iterator</,
-	/^IterableIterator</,
-	/^Generator</,
-	/^AsyncIterator</,
-	/^AsyncGenerator</,
-];
-
-// Types that are too generic to determine primordial usage
-const UNKNOWN_TYPE_PATTERNS = /** @type {const} */ ([
-	/^any$/,
-	/^unknown$/,
-	/^never$/,
-	/^void$/,
-	/^undefined$/,
-	/^null$/,
-	/^object$/i,
-	/^\{\s*\}$/, // empty object type
-]);
-
 /**
- * Whether a type string is too generic to determine primordial usage.
- * @param {string | null | undefined} typeStr - The type's string form
- * @returns {boolean}
+ * The primordial categories a literal receiver answers for. A literal is its own type,
+ * so it needs no checker at all.
+ * @param {ASTNode} node - The receiver
+ * @returns {string[] | null} null when the node is not a literal
  */
-function isUnknownType(typeStr) {
-	if (!typeStr) {
-		return true;
+function literalCategories(node) {
+	if (node.type === 'ArrayExpression') {
+		return ['Array'];
 	}
-	for (const pattern of UNKNOWN_TYPE_PATTERNS) {
-		if (pattern.test(typeStr)) {
-			return true;
-		}
+	if (node.type === 'TemplateLiteral') {
+		return ['String'];
 	}
-	return false;
-}
-
-/**
- * Determine whether a type string indicates an array, iterator, or something else.
- * @param {string | null | undefined} typeStr - The type's string form
- * @returns {'array' | 'iterator' | 'other' | null} null when the type is unknown/any
- */
-function isArrayOrIterType(typeStr) {
-	if (isUnknownType(typeStr)) {
+	if (node.type !== 'Literal') {
 		return null;
 	}
-	const str = /** @type {string} */ (typeStr);
-	for (const pattern of ARRAY_PATTERNS) {
-		if (pattern.test(str)) {
-			return 'array';
-		}
+	if (node.regex) {
+		return ['RegExp'];
 	}
-	for (const pattern of ITERATOR_PATTERNS) {
-		if (pattern.test(str)) {
-			return 'iterator';
-		}
+	switch (typeof node.value) {
+		case 'string':
+			return ['String'];
+		case 'number':
+			return ['Number'];
+		case 'boolean':
+			return ['Boolean'];
+		case 'bigint':
+			return ['BigInt'];
+		default:
+			// `null`, and any literal kind a future parser adds
+			return null;
 	}
-	// If we have a concrete type that's not array/iterator, it's something else - don't flag it
-	return 'other';
-}
-
-/**
- * Whether a type string names a known primordial type (arrays, iterators, typed arrays).
- * @param {string | null | undefined} typeStr - The type's string form
- * @returns {'Array' | 'Iterator' | false | null} null when unknown, false when known but not primordial
- */
-function isKnownPrimordialType(typeStr) {
-	if (isUnknownType(typeStr)) {
-		return null; // Can't determine
-	}
-
-	const str = /** @type {string} */ (typeStr);
-	// Check for Array types
-	for (const pattern of ARRAY_PATTERNS) {
-		if (pattern.test(str)) {
-			return 'Array';
-		}
-	}
-
-	// Check for Iterator types
-	for (const pattern of ITERATOR_PATTERNS) {
-		if (pattern.test(str)) {
-			return 'Iterator';
-		}
-	}
-
-	// We have a concrete type that's not a known primordial - it's something else
-	return false;
 }
 
 /**
@@ -1340,63 +1271,53 @@ export function analyzeFile(filePath, options = {}) {
 	 * @param {ASTNode} node - The MemberExpression
 	 * @param {string[]} categories - The primordial categories the method name belongs to
 	 * @param {boolean} isAmbiguous - Whether the name maps to more than one category
-	 * @returns {{ category: (string | null), certainty: string, typed: boolean } | null}
+	 * @returns {{ category: (string | null), certainty: string, receiver: (string | null), typed: boolean } | null}
 	 */
 	function getInstanceMethodInfo(node, categories, isAmbiguous) {
 		const detectedCategory = categories.length === 1 ? categories[0] : null; // eslint-disable-line no-magic-numbers
 
-		// Fast path: array literals are always certain
-		if (node.object.type === 'ArrayExpression') {
+		// a literal receiver names its own type, with no checker needed
+		let typeCats = literalCategories(node.object);
+		let named = null;
+
+		if (!typeCats) {
+			if (isAmbiguous && !includeUncertain) {
+				// nothing short of a type can resolve this name, and uncertain findings are not wanted
+				return null;
+			}
+			const typeStr = getNodeType(node.object);
+			typeCats = typeCategories(typeStr);
+			named = typeGlobalName(typeStr);
+		}
+
+		if (typeCats) {
+			const resolved = resolveCategory(typeCats, categories);
+			if (!resolved) {
+				/*
+				 * The receiver's type is known, and no primordial of that type owns this name:
+				 * `CharSet.test()` is not `RegExp.prototype.test`, and an iterator has no `push`.
+				 */
+				return null;
+			}
 			return {
-				category: 'Array',
+				category: resolved,
 				certainty: CERTAINTY_CERTAIN,
+				// only worth recording where it says more than the category does
+				receiver: named === resolved ? null : named,
 				typed: true,
 			};
 		}
 
-		if (isAmbiguous && includeUncertain) {
-			// Only do expensive type checking for ambiguous methods when we need uncertain results
-			const typeStr = getNodeType(node.object);
-			const typeKind = typeStr ? isArrayOrIterType(typeStr) : null;
-			if (typeKind === 'array' && categories.includes('Array')) {
-				return {
-					category: 'Array',
-					certainty: CERTAINTY_CERTAIN,
-					typed: true,
-				};
-			}
-			// every ambiguous iterator method also belongs to Iterator, so that is the category
-			if (typeKind === 'iterator' && categories.includes('Iterator')) {
-				return {
-					category: 'Iterator',
-					certainty: CERTAINTY_CERTAIN,
-					typed: true,
-				};
-			}
-			if (typeKind === 'other') {
-				return null; // Skip - not a primordial type
-			}
-			// Type unknown, keep as uncertain
+		if (isAmbiguous) {
+			// more than one primordial owns this name, and the type that would say which is unknown
 			return {
 				category: detectedCategory,
 				certainty: CERTAINTY_UNCERTAIN,
+				receiver: null,
 				typed: false,
 			};
-		} else if (isAmbiguous) {
-			// Skip ambiguous methods when --no-uncertain is set
-			return null;
 		}
 
-		/*
-		 * Non-ambiguous method - only one possible primordial category.
-		 * Check if type is a known non-primordial.
-		 */
-		const typeStr = getNodeType(node.object);
-		const primordialType = isKnownPrimordialType(typeStr);
-		if (primordialType === false) {
-			// Type is known and not a primordial - skip (e.g., CharSet.test() is not RegExp.test())
-			return null;
-		}
 		/*
 		 * Only one category can own this name, so a call to it is a call to that primordial.
 		 * That is a claim about the name, not about the object, which is why `typed` says
@@ -1405,7 +1326,8 @@ export function analyzeFile(filePath, options = {}) {
 		return {
 			category: detectedCategory,
 			certainty: CERTAINTY_CERTAIN,
-			typed: !!primordialType,
+			receiver: null,
+			typed: false,
 		};
 	}
 
@@ -1504,6 +1426,7 @@ export function analyzeFile(filePath, options = {}) {
 			line: node.loc.start.line,
 			name: methodName,
 			possibleCategories: isAmbiguous ? categories : void undefined,
+			receiver: methodInfo.receiver ?? void undefined,
 			type: 'instanceMethod',
 		});
 	}
@@ -1712,10 +1635,25 @@ export function groupByCategory(findings) {
 	return grouped;
 }
 
+/**
+ * What a finding says the receiver is: the global its type names when that is more
+ * specific than the category, the category otherwise, and nothing when the type could
+ * not be determined - `slice` alone does not say whether it reached `Array`, `String`,
+ * or a typed array.
+ * @param {Finding} finding - The finding
+ * @returns {string} the empty string when there is nothing to name
+ */
+export function receiverLabel(finding) {
+	return finding.receiver || finding.category || '';
+}
+
 /** @type {Record<string, (f: Finding) => string>} */
 const FINDING_DESCRIPTIONS = {
 	global: (f) => `${f.name}`,
-	instanceMethod: (f) => `.${f.name}()`,
+	instanceMethod(f) {
+		const receiver = receiverLabel(f);
+		return receiver ? `.${f.name}() on ${receiver}` : `.${f.name}()`;
+	},
 	prototypeAccess: (f) => `${f.name}`,
 	spread: () => 'spread syntax (...)',
 	staticMethod: (f) => `${f.name}()`,

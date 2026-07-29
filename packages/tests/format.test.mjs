@@ -1,6 +1,53 @@
 import test from 'tape';
 
-import { formatAsTAP } from 'find-primordials';
+import { formatAsTAP, receiverLabel } from 'find-primordials';
+
+test('formatAsTAP - names the receiver a method was reached through', (t) => {
+	function line(finding) {
+		return formatAsTAP([
+			{
+				certainty: 'certain',
+				column: 1, // eslint-disable-line no-magic-numbers
+				file: 'a.js',
+				line: 1, // eslint-disable-line no-magic-numbers
+				type: 'instanceMethod',
+				...finding,
+			},
+		]);
+	}
+
+	/*
+	 * `slice` alone does not say what it reached, so the receiver is what makes one
+	 * finding tell you to reach for `ArrayPrototypeSlice` and another `StringPrototypeSlice`.
+	 */
+	t.ok(line({ category: 'Array', name: 'slice' }).includes('.slice() on Array'), 'an Array receiver');
+	t.ok(line({ category: 'String', name: 'slice' }).includes('.slice() on String'), 'a String receiver');
+	t.ok(line({ category: 'TypedArray', name: 'slice' }).includes('.slice() on TypedArray'), 'a typed array with no name of its own');
+
+	// the specific typed array beats the family it belongs to
+	t.ok(line({
+		category: 'TypedArray', name: 'slice', receiver: 'Uint8Array',
+	}).includes('.slice() on Uint8Array'), 'the typed array it actually is');
+	t.ok(line({
+		category: 'Error', name: 'toString', receiver: 'TypeError',
+	}).includes('.toString() on TypeError'), 'the error subclass it actually is');
+
+	// with no category at all there is nothing honest to name
+	const uncertain = line({
+		category: null, certainty: 'uncertain', name: 'slice', possibleCategories: ['Array', 'String'],
+	});
+	t.ok(uncertain.includes('.slice() [uncertain'), 'an unresolved receiver is left unnamed');
+	t.ok(uncertain.includes('# Array/String'), 'and its candidates group the finding');
+
+	t.end();
+});
+
+test('receiverLabel', (t) => {
+	t.equal(receiverLabel({ category: 'TypedArray', receiver: 'Uint8Array' }), 'Uint8Array', 'prefers the specific global');
+	t.equal(receiverLabel({ category: 'Array' }), 'Array', 'falls back to the category');
+	t.equal(receiverLabel({ category: null }), '', 'and names nothing when there is no category');
+	t.end();
+});
 
 test('formatAsTAP - formats empty findings', (t) => {
 	const output = formatAsTAP([]);

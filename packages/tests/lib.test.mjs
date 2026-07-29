@@ -28,8 +28,11 @@ import {
 	isUnpublishedFile,
 	normalizeIgnoreConfig,
 	primordials,
+	resolveCategory,
 	shouldIgnoreFile,
 	shouldIgnoreFinding,
+	typeCategories,
+	typeGlobalName,
 } from 'find-primordials';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -163,6 +166,147 @@ test('analyzeFile - reports through an array type alias', (t) => {
 	t.end();
 });
 
+test('typeCategories - every primordial a type can name', (t) => {
+	t.test('primitives, their wrappers, and their literal types', (st) => {
+		for (const [typeStr, expected] of [
+			['string', ['String']],
+			['String', ['String']],
+			['"abc"', ['String']],
+			['number', ['Number']],
+			['Number', ['Number']],
+			['42', ['Number']],
+			['-1.5e3', ['Number']],
+			['0x1f', ['Number']],
+			['boolean', ['Boolean']],
+			['true', ['Boolean']],
+			['false', ['Boolean']],
+			['bigint', ['BigInt']],
+			['9n', ['BigInt']],
+			['symbol', ['Symbol']],
+			['unique symbol', ['Symbol']],
+		]) {
+			st.deepEqual(typeCategories(typeStr), expected, `${typeStr} -> ${expected[0]}`);
+		}
+		st.end();
+	});
+
+	t.test('arrays, tuples, and the buffer family', (st) => {
+		for (const [typeStr, expected] of [
+			['Array<string>', ['Array']],
+			['ReadonlyArray<string>', ['Array']],
+			['string[]', ['Array']],
+			['readonly string[]', ['Array']],
+			['[string, number]', ['Array']],
+			['readonly [string]', ['Array']],
+			['Int8Array', ['TypedArray']],
+			['Uint8ClampedArray', ['TypedArray']],
+			['Uint8Array<ArrayBufferLike>', ['TypedArray']],
+			['BigUint64Array', ['TypedArray']],
+			['Float16Array', ['TypedArray']],
+			['ArrayBuffer', ['ArrayBuffer']],
+			['SharedArrayBuffer', ['SharedArrayBuffer']],
+			['DataView<ArrayBufferLike>', ['DataView']],
+		]) {
+			st.deepEqual(typeCategories(typeStr), expected, `${typeStr} -> ${expected[0]}`);
+		}
+		st.end();
+	});
+
+	t.test('collections, iterators, and the rest', (st) => {
+		for (const [typeStr, expected] of [
+			['Map<string, number>', ['Map']],
+			['ReadonlyMap<string, number>', ['Map']],
+			['Set<string>', ['Set']],
+			['WeakMap<object, number>', ['WeakMap']],
+			['WeakSet<object>', ['WeakSet']],
+			['WeakRef<object>', ['WeakRef']],
+			['FinalizationRegistry<string>', ['FinalizationRegistry']],
+			['Iterator<number>', ['Iterator']],
+			['IterableIterator<string>', ['Iterator']],
+			['ArrayIterator<string>', ['Iterator']],
+			['MapIterator<string>', ['Iterator']],
+			['AsyncIterator<number>', ['AsyncIterator']],
+			['Promise<string>', ['Promise']],
+			['RegExp', ['RegExp']],
+			['Date', ['Date']],
+			['Error', ['Error']],
+			['TypeError', ['Error']],
+			['AggregateError', ['Error']],
+			['Function', ['Function']],
+			['(x: number) => string', ['Function']],
+			['<T>(x: T) => T', ['Function']],
+			['new () => Widget', ['Function']],
+		]) {
+			st.deepEqual(typeCategories(typeStr), expected, `${typeStr} -> ${expected[0]}`);
+		}
+		st.end();
+	});
+
+	t.test('a generator reaches the iterator helpers through its own prototype', (st) => {
+		st.deepEqual(typeCategories('Generator<number, void, unknown>'), ['Generator', 'Iterator'], 'Generator answers for Iterator too');
+		st.deepEqual(typeCategories('AsyncGenerator<number>'), ['AsyncGenerator', 'AsyncIterator'], 'AsyncGenerator answers for AsyncIterator too');
+		st.end();
+	});
+
+	t.test('types that name nothing in particular', (st) => {
+		for (const typeStr of [
+			'any', 'unknown', 'never', 'void', 'undefined', 'null', 'object', 'Object', '{}', '{ }', '', null, undefined,
+		]) {
+			st.equal(typeCategories(typeStr), null, `${JSON.stringify(typeStr)} -> null`);
+		}
+		st.end();
+	});
+
+	t.test('concrete types that are not primordials', (st) => {
+		for (const typeStr of [
+			'Widget', 'PlatformPath', '{ foo: string }', 'Record<string, number>',
+		]) {
+			st.deepEqual(typeCategories(typeStr), [], `${typeStr} -> no categories`);
+		}
+		st.end();
+	});
+
+	t.test('unions answer only for what every member answers for', (st) => {
+		st.deepEqual(typeCategories('string | undefined'), ['String'], 'a nullable string is a string');
+		st.deepEqual(typeCategories('string | null'), ['String'], 'and so is one that may be null');
+		st.deepEqual(typeCategories('Array<string> | undefined'), ['Array'], 'a nullable array is an array');
+		st.equal(typeCategories('string | number'), null, 'members that disagree resolve to nothing');
+		st.equal(typeCategories('Widget | string'), null, 'and so do a concrete type and a primordial');
+		st.deepEqual(typeCategories('Widget | Gadget'), [], 'two concrete types stay concrete');
+		st.deepEqual(typeCategories('string | string'), ['String'], 'members that agree resolve');
+		st.deepEqual(typeCategories('Map<string, string | number>'), ['Map'], 'a union inside a type argument is not a top-level one');
+		st.deepEqual(typeCategories('"a|b"'), ['String'], 'and neither is one inside a string literal type');
+		st.deepEqual(typeCategories('((a: string) => void) | undefined'), ['Function'], 'a union inside a parameter list is not one either');
+		st.end();
+	});
+
+	t.end();
+});
+
+test('typeGlobalName - the primordial global a type names', (t) => {
+	t.equal(typeGlobalName('Uint8Array'), 'Uint8Array', 'a typed array names itself, not its family');
+	t.equal(typeGlobalName('Uint8Array<ArrayBufferLike>'), 'Uint8Array', 'type arguments do not hide it');
+	t.equal(typeGlobalName('Uint8Array | undefined'), 'Uint8Array', 'and neither does being nullable');
+	t.equal(typeGlobalName('TypeError'), 'TypeError', 'an error subclass names itself');
+	t.equal(typeGlobalName('Map<string, number>'), 'Map', 'a collection names itself');
+	t.equal(typeGlobalName('string'), null, 'a primitive is not a global');
+	t.equal(typeGlobalName('string[]'), null, 'and neither is an array shorthand');
+	t.equal(typeGlobalName('ReadonlyMap<string, number>'), null, 'nor a type that is not a primordial global');
+	t.equal(typeGlobalName('undefined'), null, 'a type with no members left names nothing');
+	t.equal(typeGlobalName(null), null, 'and neither does a missing type');
+	t.end();
+});
+
+test('resolveCategory - the most specific category that owns the name', (t) => {
+	t.equal(resolveCategory(['Generator', 'Iterator'], [
+		'Array', 'Iterator', 'AsyncIterator',
+	]), 'Iterator', 'falls through to the category that owns it');
+	t.equal(resolveCategory(['Generator', 'Iterator'], ['Generator', 'AsyncGenerator']), 'Generator', 'prefers the most specific one');
+	t.equal(resolveCategory(['Map'], ['Array', 'TypedArray']), null, 'a type that owns no such method resolves to nothing');
+	t.equal(resolveCategory([], ['Array']), null, 'and neither does a type with no categories at all');
+	t.end();
+});
+
 test('analyzeFile - types a file in its own project', (t) => {
 	const projectDir = path.join(fixturesDir, 'project-types');
 
@@ -193,6 +337,67 @@ test('analyzeFile - types a file in its own project', (t) => {
 	t.notOk(result.error, 'an unreadable tsconfig is not an error');
 	t.equal(joinFinding(broken)?.certainty, 'uncertain', 'and the file is typed on its own');
 
+	t.end();
+});
+
+test('analyzeFile - resolves a shared method name to the type that owns it', (t) => {
+	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'primordials-shared-'));
+	let counter = 0;
+
+	function findingFor(name, code) {
+		counter += 1;
+		const testFile = path.join(tmpDir, `shared${counter}.js`);
+		fs.writeFileSync(testFile, code);
+		return analyzeFile(testFile, {}).findings.find((f) => f.name === name);
+	}
+
+	/*
+	 * `slice` is owned by five primordials and `join` by two, so the receiver's type is the
+	 * only thing that says which one a call reached.
+	 */
+	function declare(type, expr) {
+		return `/** @type {${type}} */\nvar receiver = ${expr};\nfunction fn() { return receiver.slice(1); }`;
+	}
+
+	t.equal(findingFor('slice', declare('string', '""'))?.category, 'String', 'a string resolves slice to String');
+	t.equal(findingFor('slice', declare('number[]', '[]'))?.category, 'Array', 'an array resolves it to Array');
+	t.equal(findingFor('slice', declare('ArrayBuffer', 'new ArrayBuffer(0)'))?.category, 'ArrayBuffer', 'a buffer resolves it to ArrayBuffer');
+
+	const typedArray = findingFor('slice', declare('Uint8Array', 'new Uint8Array(0)'));
+	t.equal(typedArray?.category, 'TypedArray', 'a typed array resolves it to TypedArray');
+	t.equal(typedArray?.receiver, 'Uint8Array', 'and records which typed array it was');
+
+	// a receiver of a type that owns no such method is not a primordial use at all
+	t.equal(findingFor('slice', declare('Map<string, number>', 'new Map()')), void undefined, 'a Map has no slice to reach');
+
+	fs.rmSync(tmpDir, { recursive: true });
+	t.end();
+});
+
+test('analyzeFile - a literal receiver names its own type', (t) => {
+	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'primordials-literals-'));
+	let counter = 0;
+
+	function categoryOf(name, code) {
+		counter += 1;
+		const testFile = path.join(tmpDir, `lit${counter}.js`);
+		fs.writeFileSync(testFile, code);
+		const found = analyzeFile(testFile, {}).findings.find((f) => f.name === name);
+		return found && `${found.certainty}:${found.category}`;
+	}
+
+	t.equal(categoryOf('slice', 'function fn() { return "abc".slice(1); }'), 'certain:String', 'a string literal is a String');
+	t.equal(categoryOf('slice', 'function fn(x) { return `a${x}b`.slice(1); }'), 'certain:String', 'a template literal is a String'); // eslint-disable-line no-template-curly-in-string
+	t.equal(categoryOf('test', 'function fn(s) { return /x/.test(s); }'), 'certain:RegExp', 'a regex literal is a RegExp');
+	t.equal(categoryOf('toFixed', 'function fn() { return (1.5).toFixed(2); }'), 'certain:Number', 'a number literal is a Number');
+	t.equal(categoryOf('toString', 'function fn() { return true.toString(); }'), 'certain:Boolean', 'a boolean literal is a Boolean');
+	t.equal(categoryOf('toString', 'function fn() { return 9n.toString(); }'), 'certain:BigInt', 'a bigint literal is a BigInt');
+	t.equal(categoryOf('at', 'function fn() { return [1, 2].at(0); }'), 'certain:Array', 'an array literal is an Array');
+
+	// `null` is a literal that names no type, so it falls through to the type checker
+	t.equal(categoryOf('toString', 'function fn() { return null.toString(); }'), 'uncertain:null', 'a null literal names nothing');
+
+	fs.rmSync(tmpDir, { recursive: true });
 	t.end();
 });
 

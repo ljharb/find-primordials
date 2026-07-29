@@ -30,6 +30,7 @@ export {
 	isReevaluable,
 	isRepeatable,
 	literalIndex,
+	receiverLabel,
 	startsAStatement,
 	voidNeedsParens,
 } from '#/analyzer';
@@ -48,6 +49,9 @@ export {
 	ambiguousInstanceMethods,
 	globalToCategory,
 	primordials,
+	resolveCategory,
+	typeCategories,
+	typeGlobalName,
 	typedArrayGlobals,
 } from '#/primordials';
 

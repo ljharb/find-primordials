@@ -834,3 +834,202 @@ for (const [method, categories] of allInstanceMethods) {
 		ambiguousInstanceMethods.add(method);
 	}
 }
+
+/*
+ * Type strings that name nothing in particular. A receiver typed like this is no better
+ * described than an untyped one.
+ */
+const UNKNOWN_TYPES = [
+	/^any$/,
+	/^unknown$/,
+	/^never$/,
+	/^void$/,
+	/^object$/i,
+	/^\{\s*\}$/,
+];
+
+/*
+ * How TypeScript prints each primordial, paired with the categories that answers for -
+ * most specific first, since a `Generator` reaches `Iterator`'s methods through its own
+ * prototype chain and either name could be the one that owns the method at hand.
+ *
+ * Order matters: a string literal type is checked before the array patterns, so that a
+ * type like `"a[]"` is a string rather than an array.
+ */
+const TYPE_CATEGORIES = /** @type {[RegExp, string[]][]} */ ([
+	// primitives, their wrappers, and their literal types
+	[/^(?:string|String)$/, ['String']],
+	[/^["'`]/, ['String']],
+	[/^(?:number|Number)$/, ['Number']],
+	[/^-?(?:\d[\d_]*(?:\.\d[\d_]*)?(?:e[-+]?\d+)?|0[box][\da-f_]+)$/i, ['Number']],
+	[/^(?:boolean|Boolean|true|false)$/, ['Boolean']],
+	[/^(?:bigint|BigInt)$/, ['BigInt']],
+	[/^-?\d[\d_]*n$/, ['BigInt']],
+	[/^(?:symbol|Symbol|unique symbol)$/, ['Symbol']],
+
+	// arrays and tuples, however they are spelled
+	[/^(?:Readonly)?Array(?:<|$)/, ['Array']],
+	[/\[\]$/, ['Array']],
+	[/^(?:readonly )?\[/, ['Array']],
+
+	// the buffer family
+	[/^(?:BigInt64|BigUint64|Float16|Float32|Float64|Int8|Int16|Int32|Uint8Clamped|Uint8|Uint16|Uint32)Array(?:<|$)/, ['TypedArray']],
+	[/^ArrayBuffer(?:<|$)/, ['ArrayBuffer']],
+	[/^SharedArrayBuffer(?:<|$)/, ['SharedArrayBuffer']],
+	[/^DataView(?:<|$)/, ['DataView']],
+
+	// the keyed collections
+	[/^(?:Readonly)?Map(?:<|$)/, ['Map']],
+	[/^(?:Readonly)?Set(?:<|$)/, ['Set']],
+	[/^WeakMap(?:<|$)/, ['WeakMap']],
+	[/^WeakSet(?:<|$)/, ['WeakSet']],
+	[/^WeakRef(?:<|$)/, ['WeakRef']],
+	[/^FinalizationRegistry(?:<|$)/, ['FinalizationRegistry']],
+
+	// iterators, and the generators that inherit their helpers
+	[/^AsyncGenerator(?:<|$)/, ['AsyncGenerator', 'AsyncIterator']],
+	[/^Generator(?:<|$)/, ['Generator', 'Iterator']],
+	[/^Async(?:Iterator|IterableIterator|IteratorObject)(?:<|$)/, ['AsyncIterator']],
+	[/^(?:Iterator|IterableIterator|IteratorObject|ArrayIterator|MapIterator|SetIterator|StringIterator|RegExpStringIterator)(?:<|$)/, ['Iterator']],
+
+	// the rest, including every built-in that inherits `Error.prototype`
+	[/^Promise(?:<|$)/, ['Promise']],
+	[/^RegExp$/, ['RegExp']],
+	[/^Date$/, ['Date']],
+	[/^(?:Aggregate|Eval|Range|Reference|Syntax|Type|URI)?Error$/, ['Error']],
+	[/^Function$/, ['Function']],
+	[/^(?:new )?[(<][\s\S]*=>/, ['Function']],
+]);
+
+/**
+ * Split a type string on its top-level unions, leaving the `|` inside a type argument,
+ * a parameter list, or a string literal where it is.
+ * @param {string} typeStr - The type's string form
+ * @returns {string[]}
+ */
+function splitUnion(typeStr) {
+	const parts = [];
+	let depth = 0;
+	let quote = '';
+	let start = 0;
+
+	for (let i = 0; i < typeStr.length; i += 1) {
+		const char = typeStr[i];
+		if (quote) {
+			if (char === quote) {
+				quote = '';
+			}
+		} else if (char === '"' || char === '\'' || char === '`') {
+			quote = char;
+		} else if (char === '<' || char === '(' || char === '[' || char === '{') {
+			depth += 1;
+		} else if (char === '>' || char === ')' || char === ']' || char === '}') {
+			depth -= 1;
+		} else if (char === '|' && depth === 0) {
+			parts[parts.length] = typeStr.slice(start, i).trim();
+			start = i + 1;
+		}
+	}
+	parts[parts.length] = typeStr.slice(start).trim();
+
+	return parts;
+}
+
+/**
+ * The primordial categories a single, non-union type string answers for.
+ * @param {string} typeStr - The type's string form
+ * @returns {string[] | null} null when the type names nothing in particular
+ */
+function categoriesForOne(typeStr) {
+	for (const pattern of UNKNOWN_TYPES) {
+		if (pattern.test(typeStr)) {
+			return null;
+		}
+	}
+
+	for (const [pattern, categories] of TYPE_CATEGORIES) {
+		if (pattern.test(typeStr)) {
+			return categories;
+		}
+	}
+
+	// a concrete type, and not one of ours
+	return [];
+}
+
+/**
+ * A type's union members, less the ones with no methods to reach.
+ * @param {string} typeStr - The type's string form
+ * @returns {string[]}
+ */
+function unionParts(typeStr) {
+	return splitUnion(typeStr).filter((part) => !(/^(?:undefined|null)$/).test(part));
+}
+
+/**
+ * The primordial global a type names, where that is more specific than the category it
+ * belongs to: `Uint8Array` rather than the `TypedArray` family, `TypeError` rather than
+ * plain `Error`.
+ * @param {string | null | undefined} typeStr - The type's string form
+ * @returns {string | null} null when the type names no primordial global
+ */
+export function typeGlobalName(typeStr) {
+	if (!typeStr) {
+		return null;
+	}
+
+	const parts = unionParts(typeStr);
+	if (parts.length === 0) {
+		return null;
+	}
+
+	const named = (/^(?<global>[A-Za-z_$][\w$]*)/).exec(parts[0]);
+	const global = named?.groups?.global;
+	return global && allGlobals.has(global) ? global : null;
+}
+
+/**
+ * The primordial categories a type answers for, most specific first.
+ *
+ * A union answers only for what every one of its members answers for - `string | undefined`
+ * is a string, since `undefined` has no methods to reach, while `string | number` is left
+ * unresolved because either could be the one whose method is being called.
+ * @param {string | null | undefined} typeStr - The type's string form
+ * @returns {string[] | null} null when the type names nothing in particular; empty when it names something concrete that is not a primordial
+ */
+export function typeCategories(typeStr) {
+	if (!typeStr) {
+		return null;
+	}
+
+	const parts = unionParts(typeStr);
+	if (parts.length === 0) {
+		return null;
+	}
+
+	const first = categoriesForOne(parts[0]);
+	for (let i = 1; i < parts.length; i += 1) {
+		const next = categoriesForOne(parts[i]);
+		if (!first || !next || first[0] !== next[0]) {
+			return null;
+		}
+	}
+
+	return first;
+}
+
+/**
+ * The category a receiver's type resolves a method name to: the most specific of the
+ * type's categories that owns the name.
+ * @param {string[]} typeCats - The categories the receiver's type answers for
+ * @param {string[]} categories - The categories the method name belongs to
+ * @returns {string | null} null when the type owns no such method
+ */
+export function resolveCategory(typeCats, categories) {
+	for (const category of typeCats) {
+		if (categories.includes(category)) {
+			return category;
+		}
+	}
+	return null;
+}

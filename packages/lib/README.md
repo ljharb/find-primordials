@@ -124,6 +124,11 @@ Analyzes a single file and returns findings.
 
 A method name that more than one primordial owns - `join` is on both `Array` and `TypedArray`, `slice` on five - can only be pinned down by the receiver's type, so that is where a finding's certainty comes from.
 
+Every primordial resolves this way, not just arrays and iterators: a `Map` receiver resolves `.has()` to `Map`, a `Date` resolves `.getTime()` to `Date`, a `string` resolves `.slice()` to `String`.
+A receiver whose type owns no such method is not reported at all - a `CharSet` with its own `test` is not `RegExp.prototype.test`, and an iterator has no `push`.
+Where a type is more specific than its category, the finding records it: a `Uint8Array` receiver has `category: 'TypedArray'` and `receiver: 'Uint8Array'`, and a `TypeError` has `category: 'Error'` and `receiver: 'TypeError'`.
+A literal receiver needs no checker at all - `'x'.slice()`, `` `x`.slice() ``, `/x/.test()`, `(1).toFixed()`, and `[1].at()` each name their own type.
+
 Types come from the file's own project: the nearest `tsconfig.json` at or above it, with the compiler options that config sets and alongside every other file it covers.
 That is the same view an editor has, which matters because some types are reachable no other way - node's builtins are ambient `declare module`s inside `@types/node`, and a package like that only reaches a program by being named in `types`, or by a `/// <reference types>` somewhere else in the project.
 A file typed on its own sees `path` as `any`, and every `path.join()` becomes an uncertain finding.
@@ -173,6 +178,31 @@ Each call is a single pass, and a fix can hide another one nested inside it, so 
 ### `applyPushFixes(filePath, findings)` / `applyUndefinedFixes(filePath, findings)`
 
 Like `applyFixes`, but limited to the `push` and `undefined` rewrites respectively.
+
+### `typeCategories(typeStr)` / `typeGlobalName(typeStr)` / `resolveCategory(typeCats, categories)`
+
+The pieces type resolution is built from, exported so a consumer can classify a type the same way.
+
+`typeCategories` maps a type's printed form to the primordial categories it answers for, most specific first: `null` when the type names nothing in particular (`any`, `unknown`, `object`), and empty when it names something concrete that is no primordial at all.
+A union answers only for what every one of its members answers for, so `string | undefined` is a `String` while `string | number` is left unresolved.
+
+`typeGlobalName` picks out the specific global where that says more than the category - `Uint8Array` rather than `TypedArray`.
+
+`resolveCategory` picks the most specific of a type's categories that owns a given method name, which is how a `Generator` receiver resolves `.map()` to `Iterator` and `.next()` to `Generator`.
+
+```js
+import { allInstanceMethods, resolveCategory, typeCategories } from 'find-primordials';
+
+typeCategories('Uint8Array<ArrayBufferLike>'); // ['TypedArray']
+typeCategories('Generator<number>');           // ['Generator', 'Iterator']
+typeCategories('Widget');                      // []
+
+resolveCategory(typeCategories('string'), allInstanceMethods.get('slice')); // 'String'
+```
+
+### `receiverLabel(finding)`
+
+What a finding says the receiver is: its `receiver` when set, its `category` otherwise, and the empty string when the type could not be determined.
 
 ### Finding Types
 
