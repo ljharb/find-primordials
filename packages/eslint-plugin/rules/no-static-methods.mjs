@@ -49,6 +49,7 @@ export default {
 		const options = context.options[0] || {}; // eslint-disable-line no-magic-numbers
 		const ignoreNames = new Set(Array.isArray(options.ignoreNames) ? options.ignoreNames : []);
 		const ignoreCategories = new Set(Array.isArray(options.ignoreCategories) ? options.ignoreCategories : []);
+		const includeCached = /** @type {boolean} */ (options.includeCached || false);
 
 		return {
 			/** @param {ASTNode} node - The member expression */
@@ -67,7 +68,7 @@ export default {
 				}
 
 				const isModuleLevel = isModuleLevelScope(context, node);
-				if (isModuleLevel && isBeingCached(node)) {
+				if (!includeCached && isModuleLevel && isBeingCached(node)) {
 					return; // Safe - module level caching
 				}
 
@@ -109,6 +110,11 @@ export default {
 						description: 'Static method/property names to ignore (e.g., ["keys", "isArray"])',
 						items: { type: 'string' },
 						type: 'array',
+					},
+					includeCached: {
+						default: false,
+						description: 'Report the module-level caching that is otherwise treated as the fix',
+						type: 'boolean',
 					},
 				},
 				type: 'object',

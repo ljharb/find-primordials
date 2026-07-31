@@ -16,5 +16,6 @@
 | :----------------- | :------------------------------------------------- | :------- |
 | `ignoreCategories` | Categories to ignore (e.g., ["Array", "RegExp"])   | String[] |
 | `ignoreNames`      | Global names to ignore (e.g., ["Array", "Object"]) | String[] |
+| `includeCached`   | Report the module-level caching that is otherwise treated as the fix | Boolean  | `false` |
 
 <!-- end auto-generated rule options list -->

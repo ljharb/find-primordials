@@ -194,6 +194,38 @@ test('no-instance-methods - a data property named after a method is not a method
 	t.end();
 });
 
+test('includeCached reports what module-level caching hides', (t) => {
+	/*
+	 * Caching at module load is the fix these rules report, so it is not itself reported -
+	 * which leaves a package whose product IS the caching unable to lint itself.
+	 */
+	t.test('no-instance-methods', (st) => {
+		const code = 'var $push = Array.prototype.push;';
+		st.equal(lint(code, { 'find-primordials/no-instance-methods': 'error' }).length, 0, 'silent by default');
+
+		const reported = lint(code, { 'find-primordials/no-instance-methods': ['error', { includeCached: true }] });
+		st.equal(reported.length, 1, 'reported with includeCached');
+		st.ok(reported[0].message.includes('prototype'), 'names the prototype access');
+		st.end();
+	});
+
+	t.test('no-globals', (st) => {
+		const code = 'var $Array = Array;';
+		st.equal(lint(code, { 'find-primordials/no-globals': 'error' }).length, 0, 'silent by default');
+		st.equal(lint(code, { 'find-primordials/no-globals': ['error', { includeCached: true }] }).length, 1, 'reported with includeCached');
+		st.end();
+	});
+
+	t.test('no-static-methods', (st) => {
+		const code = 'var $keys = Object.keys;';
+		st.equal(lint(code, { 'find-primordials/no-static-methods': 'error' }).length, 0, 'silent by default');
+		st.equal(lint(code, { 'find-primordials/no-static-methods': ['error', { includeCached: true }] }).length, 1, 'reported with includeCached');
+		st.end();
+	});
+
+	t.end();
+});
+
 test('no-globals autofix', (t) => {
 	t.test('leaves the { undefined } shorthand alone', (st) => {
 		const result = lintAndFix('function fn() { return { undefined }; }', { 'find-primordials/no-globals': 'error' });

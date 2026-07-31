@@ -84,11 +84,12 @@ function getInstanceMethodFix(node, methodName, certainty, context) {
  * @param {RuleContext} context - The rule context
  * @param {ASTNode} node - The MemberExpression node
  * @param {{ globalName: string, methodName: (string | null) }} protoAccess - The prototype access info
+ * @param {boolean} includeCached - Whether to report the caching too
  * @returns {boolean}
  */
-function handlePrototypeAccess(context, node, protoAccess) {
+function handlePrototypeAccess(context, node, protoAccess, includeCached) {
 	const isModuleLevel = isModuleLevelScope(context, node);
-	if (isModuleLevel && isBeingCached(node)) {
+	if (!includeCached && isModuleLevel && isBeingCached(node)) {
 		return true; // Safe - module level caching
 	}
 
@@ -171,6 +172,7 @@ export default {
 		/** @type {Record<string, unknown>} */
 		const options = context.options[0] || {}; // eslint-disable-line no-magic-numbers
 		const allowUncertain = options.allowUncertain || false;
+		const includeCached = /** @type {boolean} */ (options.includeCached || false);
 		const ignoreNames = new Set(Array.isArray(options.ignoreNames) ? options.ignoreNames : []);
 		const ignoreCategories = new Set(Array.isArray(options.ignoreCategories) ? options.ignoreCategories : []);
 
@@ -187,7 +189,7 @@ export default {
 					if (ignoreCategories.has(protoAccess.globalName)) {
 						return;
 					}
-					handlePrototypeAccess(context, node, protoAccess);
+					handlePrototypeAccess(context, node, protoAccess, includeCached);
 					return;
 				}
 
@@ -240,7 +242,7 @@ export default {
 
 				// Check if at module level and being cached
 				const isModuleLevel = isModuleLevelScope(context, node);
-				if (isModuleLevel && isBeingCached(node)) {
+				if (!includeCached && isModuleLevel && isBeingCached(node)) {
 					return; // Safe - module level caching
 				}
 
@@ -291,6 +293,11 @@ export default {
 						description: 'Method names to ignore (e.g., ["test", "push"])',
 						items: { type: 'string' },
 						type: 'array',
+					},
+					includeCached: {
+						default: false,
+						description: 'Report the module-level caching that is otherwise treated as the fix',
+						type: 'boolean',
 					},
 				},
 				type: 'object',

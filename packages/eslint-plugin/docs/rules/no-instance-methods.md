@@ -17,8 +17,17 @@
 | `allowUncertain`   |                                                  | Boolean  | `false` |
 | `ignoreCategories` | Categories to ignore (e.g., ["Array", "RegExp"]) | String[] |         |
 | `ignoreNames`      | Method names to ignore (e.g., ["test", "push"])  | String[] |         |
+| `includeCached`   | Report the module-level caching that is otherwise treated as the fix | Boolean  | `false` |
 
 <!-- end auto-generated rule options list -->
+
+## Module-Level Caching
+
+Reaching a primordial once, at module load, is the fix this rule reports, so it is not itself reported.
+`includeCached` reports it anyway, which is what a package whose product *is* the caching needs to lint itself - it is available on `no-globals` and `no-static-methods` too.
+
+Caching a method does not make reaching `.call` on it safe: `$push.call(arr, x)` reaches `Function.prototype.call` every time it runs, so `call`, `apply`, and `bind` are reported like any other `Function` method.
+A call-bound function carries no properties of its own - it is invoked as `cached(a, b)`, never `cached.call(a, b)` - so bind at module level and invoke the result directly, and no call site reaches a primordial.
 
 ## Type Resolution
 
