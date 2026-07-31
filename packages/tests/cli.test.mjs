@@ -127,6 +127,18 @@ test('CLI', (t) => {
 		st.end();
 	});
 
+	t.test('--include-cached reports the module-level caching', async (st) => {
+		const safePath = path.join(fixturesDir, 'sample-project', 'safe.js');
+		const result = await runCLI([
+			safePath, '--include-safe', '--include-cached',
+		]);
+
+		st.equal(result.code, 1, 'exits with 1, since caching is now a finding');
+		st.ok(result.stdout.includes('Array.prototype.push'), 'reports the cached prototype access');
+		st.ok(result.stdout.includes('Function.prototype.call'), 'and the cached `call`');
+		st.end();
+	});
+
 	t.test('analyzes unsafe project with findings', async (st) => {
 		const unsafePath = path.join(fixturesDir, 'sample-project', 'unsafe.js');
 		const result = await runCLI([unsafePath, '--include-safe']);

@@ -82,6 +82,8 @@ export type AnalysisResult = {
 
 /** Options accepted by the analyzers. */
 export type AnalyzeOptions = {
+	/** Report the module-level caching that is otherwise treated as the fix. */
+	includeCached?: boolean;
 	includeGlobals?: boolean;
 	includeSpread?: boolean;
 	includeStatic?: boolean;

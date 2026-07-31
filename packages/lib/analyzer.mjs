@@ -141,6 +141,7 @@ import {
 /**
  * Options accepted by {@link analyzeFile} and the batch analyzers.
  * @typedef {object} AnalyzeOptions
+ * @property {boolean} [includeCached] - Report the module-level caching that is otherwise treated as the fix
  * @property {boolean} [includeGlobals]
  * @property {boolean} [includeSpread]
  * @property {boolean} [includeStatic]
@@ -1121,6 +1122,7 @@ export function analyzeFile(filePath, options = {}) {
 	const {
 		includeGlobals = false,
 		includeSpread = false,
+		includeCached = false,
 		includeStatic = false,
 		includeUncertain = true,
 		isSafe = false,
@@ -1265,7 +1267,7 @@ export function analyzeFile(filePath, options = {}) {
 			return;
 		}
 		const isModuleLevel = isModuleLevelScope(ancestors);
-		if (isModuleLevel && isBeingCached(node, parent)) {
+		if (!includeCached && isModuleLevel && isBeingCached(node, parent)) {
 			return;
 		}
 		addFinding({
@@ -1365,7 +1367,7 @@ export function analyzeFile(filePath, options = {}) {
 			if (isShadowedInScope(protoAccess.globalName, ancestors)) {
 				return;
 			}
-			if (isModuleLevel && isBeingCached(node, parent)) {
+			if (!includeCached && isModuleLevel && isBeingCached(node, parent)) {
 				return;
 			}
 			addFinding({
@@ -1385,7 +1387,7 @@ export function analyzeFile(filePath, options = {}) {
 				if (isShadowedInScope(staticAcc.globalName, ancestors)) {
 					return;
 				}
-				if (isModuleLevel && isBeingCached(node, parent)) {
+				if (!includeCached && isModuleLevel && isBeingCached(node, parent)) {
 					return;
 				}
 				addFinding({
@@ -1424,7 +1426,11 @@ export function analyzeFile(filePath, options = {}) {
 			return;
 		}
 
-		if (isModuleLevel) {
+		/*
+		 * Reaching a primordial once, at module load, is the fix this reports - so it is not
+		 * itself reported, unless the caching is what you came to look at.
+		 */
+		if (!includeCached && isModuleLevel) {
 			return;
 		}
 

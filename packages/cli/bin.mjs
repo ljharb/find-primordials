@@ -344,6 +344,7 @@ function outputTapFormat(findings, groupBy) {
  *  	'ignore-files'?: string | undefined;
  *  	'ignore-names'?: string | undefined;
  *  	'ignore-types'?: string | undefined;
+ *  	'include-cached'?: boolean | undefined;
  *  	'include-safe'?: boolean | undefined;
  *  	json?: boolean | undefined;
  *  	spread?: boolean | undefined;
@@ -644,6 +645,10 @@ async function main() {
 				placeholder: 'types',
 				type: 'string',
 			},
+			'include-cached': {
+				description: 'Include the module-level caching that is otherwise treated as the fix',
+				type: 'boolean',
+			},
 			'include-safe': {
 				description: 'Include findings in safe files (bin entries, test files)',
 				type: 'boolean',
@@ -734,6 +739,7 @@ async function main() {
 	}
 
 	const analyzeOptions = {
+		includeCached: values['include-cached'],
 		includeGlobals: values.globals,
 		includeSpread: values.spread,
 		includeStatic: values.static,

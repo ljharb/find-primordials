@@ -81,6 +81,7 @@ Supported repo formats:
 | `--spread` | | Include spread syntax (...arr, {...obj}) |
 | `--no-uncertain` | | Suppress uncertain findings (where type cannot be determined) |
 | `--include-safe` | | Include findings in safe files (bin entries, test files) |
+| `--include-cached` | | Include the module-level caching that is otherwise treated as the fix |
 | `--ext <extensions>` | | Comma-separated list of extensions to scan (default: .js,.mjs,.cjs,.jsx,.ts,.mts,.cts,.tsx) |
 | `--ignore <pattern>` | | Path or glob pattern to skip; can be repeated |
 | `--fix` | | Rewrite the findings that have a primordial-free equivalent (see below) |
@@ -132,6 +133,12 @@ Use with:
 ```bash
 find-primordials ./src --ignore-config .primordials-ignore.json
 ```
+
+## Module-Level Caching
+
+Reaching a primordial once, at module load, is the fix this reports, so it is not itself a finding: `var $push = Array.prototype.push` at the top of a file is silent, and so is any primordial reached at module level.
+
+`--include-cached` reports it anyway, which is what a package whose product *is* the caching needs to audit itself - `call-bind-apply-helpers` is nothing but module-level `Function.prototype.call` and `.apply`, and without the flag it reports nothing at all.
 
 ## Uncertain Findings
 

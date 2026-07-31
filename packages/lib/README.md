@@ -118,6 +118,7 @@ Analyzes a single file and returns findings.
 - `includeStatic` - Include static method usage (default: `false`)
 - `includeSpread` - Include spread syntax usage (default: `false`)
 - `includeUncertain` - Include uncertain findings (default: `true`)
+- `includeCached` - Include the module-level caching that is otherwise treated as the fix (default: `false`)
 - `isSafeFile` - Function to determine if file is "safe" (default: checks for bin/test files)
 
 ### What Counts as a Primordial
@@ -132,6 +133,10 @@ Annex B is included because those methods are as patchable as any other, but the
 Type information resolves those correctly; without it, `names` in an ignore config (or the rule's `ignoreNames`) is the way to quiet them.
 
 `constructor` is deliberately absent from every category, as are `message` and `name` on the error prototypes, and the `next`/`return` that each built-in iterator prototype defines for itself rather than inheriting from `%IteratorPrototype%`.
+
+### Module-Level Caching
+
+Reaching a primordial once, at module load, is the fix this reports, so it is not itself a finding. `includeCached` reports it anyway, which is what a package whose product *is* the caching needs to audit itself.
 
 ### Reaching a Cached Primordial
 

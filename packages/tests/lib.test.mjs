@@ -456,6 +456,20 @@ test('analyzeFile - call/apply/bind reach Function.prototype like any other meth
 	t.end();
 });
 
+test('analyzeFile - includeCached reports what module-level caching hides', (t) => {
+	const safePath = path.join(fixturesDir, 'sample-project', 'safe.js');
+
+	t.equal(analyzeFile(safePath, {}).findings.length, 0, 'caching at module load is the fix, so it is not a finding'); // eslint-disable-line no-magic-numbers
+
+	// a package whose product IS the caching has to be able to see it
+	const cached = analyzeFile(safePath, { includeCached: true }).findings;
+	t.ok(cached.length > 0, 'includeCached surfaces it'); // eslint-disable-line no-magic-numbers
+	t.ok(cached.some((f) => f.name === 'Function.prototype.call'), 'including the cached `call`');
+	t.ok(cached.some((f) => f.name === 'Array.prototype.push'), 'and the cached prototype accesses');
+
+	t.end();
+});
+
 test('analyzeFile - a literal receiver names its own type', (t) => {
 	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'primordials-literals-'));
 	let counter = 0;
