@@ -3,7 +3,6 @@ import {
 	allInstanceMethods,
 	ambiguousInstanceMethods,
 	getTypeFromServices,
-	isBeingCached,
 	isModuleLevelScope,
 	isCalled,
 	isPrototypeAccess,
@@ -95,8 +94,8 @@ function handlePrototypeAccess(context, node, protoAccess, includeCached) {
 	}
 
 	const isModuleLevel = isModuleLevelScope(context, node);
-	if (!includeCached && isModuleLevel && isBeingCached(node)) {
-		return true; // Safe - module level caching
+	if (!includeCached && isModuleLevel) {
+		return true; // Safe - reached once, at module load
 	}
 
 	context.report({

@@ -136,7 +136,7 @@ find-primordials ./src --ignore-config .primordials-ignore.json
 
 ## Module-Level Caching
 
-Reaching a primordial once, at module load, is the fix this reports, so it is not itself a finding: `var $push = Array.prototype.push` at the top of a file is silent, and so is any primordial reached at module level.
+Reaching a primordial at module load gets the pristine one, so module level is not a finding at all - not the global, the static, the prototype access, the instance method, or the spread. `var $push = Array.prototype.push` is silent, and so is `Object.keys({})` beside it, whatever shape the reach takes.
 
 `--include-cached` reports it anyway, which is what a package whose product *is* the caching needs to audit itself - `call-bind-apply-helpers` is nothing but module-level `Function.prototype.call` and `.apply`, and without the flag it reports nothing at all.
 

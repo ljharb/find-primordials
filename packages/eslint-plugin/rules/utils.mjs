@@ -129,45 +129,6 @@ export function isModuleLevelScope(_context, node) {
 }
 
 /**
- * Whether the expression is being stored or cached rather than used at runtime.
- * @param {ASTNode} node - The node
- * @returns {boolean}
- */
-export function isBeingCached(node) {
-	const { parent } = node;
-	if (!parent) {
-		return false;
-	}
-
-	// Being assigned to a variable
-	if (parent.type === 'VariableDeclarator' && parent.init === node) {
-		return true;
-	}
-
-	// Being assigned via assignment expression
-	if (parent.type === 'AssignmentExpression' && parent.right === node) {
-		return true;
-	}
-
-	// Being passed as an argument to a function call
-	if (parent.type === 'CallExpression' && parent.arguments.includes(node)) {
-		return true;
-	}
-
-	// Part of an array
-	if (parent.type === 'ArrayExpression') {
-		return true;
-	}
-
-	// Property value in object
-	if (parent.type === 'Property' && parent.value === node) {
-		return true;
-	}
-
-	return false;
-}
-
-/**
  * Whether a member expression accesses a primordial prototype, e.g. `Array.prototype.push`.
  * @param {ASTNode} node - The node
  * @returns {{ globalName: string, methodName: (string | null) } | null}

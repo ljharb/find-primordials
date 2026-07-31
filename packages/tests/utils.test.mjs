@@ -7,7 +7,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Import utils directly from source
 const {
 	getTypeFromServices,
-	isBeingCached,
 	isShadowed,
 	isModuleLevelScope,
 	isPrototypeAccess,
@@ -226,76 +225,6 @@ test('utils.mjs - isModuleLevelScope', (t) => {
 		const node = { type: 'Program' };
 		const result = isModuleLevelScope({}, node);
 		st.equal(result, true, 'returns true for Program');
-		st.end();
-	});
-
-	t.end();
-});
-
-test('utils.mjs - isBeingCached', (t) => {
-	t.test('returns false for node with no parent', (st) => {
-		const node = { type: 'Identifier' };
-		st.equal(isBeingCached(node), false, 'returns false for no parent');
-		st.end();
-	});
-
-	t.test('returns true for VariableDeclarator init', (st) => {
-		const node = { type: 'CallExpression' };
-		const parent = { init: node, type: 'VariableDeclarator' };
-		node.parent = parent;
-		st.equal(isBeingCached(node), true, 'returns true for variable init');
-		st.end();
-	});
-
-	t.test('returns true for AssignmentExpression right', (st) => {
-		const node = { type: 'CallExpression' };
-		const parent = { right: node, type: 'AssignmentExpression' };
-		node.parent = parent;
-		st.equal(isBeingCached(node), true, 'returns true for assignment right');
-		st.end();
-	});
-
-	t.test('returns true for CallExpression argument', (st) => {
-		const node = { type: 'CallExpression' };
-		const parent = { arguments: [node], type: 'CallExpression' };
-		node.parent = parent;
-		st.equal(isBeingCached(node), true, 'returns true for call argument');
-		st.end();
-	});
-
-	t.test('returns true for ArrayExpression element', (st) => {
-		const node = { type: 'CallExpression' };
-		const parent = { type: 'ArrayExpression' };
-		node.parent = parent;
-		st.equal(isBeingCached(node), true, 'returns true for array element');
-		st.end();
-	});
-
-	t.test('returns true for Property value', (st) => {
-		const node = { type: 'CallExpression' };
-		const parent = { type: 'Property', value: node };
-		node.parent = parent;
-		st.equal(isBeingCached(node), true, 'returns true for property value');
-		st.end();
-	});
-
-	t.test('returns false for unrelated parent types', (st) => {
-		const node = { type: 'CallExpression' };
-		const parent = { type: 'ExpressionStatement' };
-		node.parent = parent;
-		st.equal(isBeingCached(node), false, 'returns false for ExpressionStatement');
-		st.end();
-	});
-
-	t.test('returns false for Property key (not value)', (st) => {
-		const node = { type: 'Identifier' };
-		const parent = {
-			key: node,
-			type: 'Property',
-			value: { type: 'Literal' },
-		};
-		node.parent = parent;
-		st.equal(isBeingCached(node), false, 'returns false for property key');
 		st.end();
 	});
 

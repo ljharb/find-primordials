@@ -207,31 +207,6 @@ function isModuleLevelScope(ancestors) {
 }
 
 /**
- * Whether the expression is being stored or cached rather than used at runtime.
- * @param {ASTNode} node - The node in question
- * @param {ASTNode} parent - Its parent
- * @returns {boolean}
- */
-function isBeingCached(node, parent) {
-	if (parent.type === 'VariableDeclarator' && parent.init === node) {
-		return true;
-	}
-	if (parent.type === 'AssignmentExpression' && parent.right === node) {
-		return true;
-	}
-	if (parent.type === 'CallExpression' && parent.arguments.includes(node)) {
-		return true;
-	}
-	if (parent.type === 'ArrayExpression') {
-		return true;
-	}
-	if (parent.type === 'Property' && parent.value === node) {
-		return true;
-	}
-	return false;
-}
-
-/**
  * The slice of a TypeScript `Type` this module reads.
  * @typedef {{ flags: number }} TypeLike
  */
@@ -1267,7 +1242,7 @@ export function analyzeFile(filePath, options = {}) {
 			return;
 		}
 		const isModuleLevel = isModuleLevelScope(ancestors);
-		if (!includeCached && isModuleLevel && isBeingCached(node, parent)) {
+		if (!includeCached && isModuleLevel) {
 			return;
 		}
 		addFinding({
@@ -1367,7 +1342,7 @@ export function analyzeFile(filePath, options = {}) {
 			if (isShadowedInScope(protoAccess.globalName, ancestors)) {
 				return;
 			}
-			if (!includeCached && isModuleLevel && isBeingCached(node, parent)) {
+			if (!includeCached && isModuleLevel) {
 				return;
 			}
 			addFinding({
@@ -1387,7 +1362,7 @@ export function analyzeFile(filePath, options = {}) {
 				if (isShadowedInScope(staticAcc.globalName, ancestors)) {
 					return;
 				}
-				if (!includeCached && isModuleLevel && isBeingCached(node, parent)) {
+				if (!includeCached && isModuleLevel) {
 					return;
 				}
 				addFinding({
@@ -1426,11 +1401,6 @@ export function analyzeFile(filePath, options = {}) {
 			return;
 		}
 
-		/*
-		 * Reaching a primordial at module load gets the pristine one, whatever shape the
-		 * reach takes - `$call.bind($push)` is a reach, and it is the fix. So module level
-		 * is exempt outright, not only where the immediate parent looks like caching.
-		 */
 		if (!includeCached && isModuleLevel) {
 			return;
 		}

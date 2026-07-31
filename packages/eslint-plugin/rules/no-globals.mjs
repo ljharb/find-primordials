@@ -4,7 +4,6 @@ import {
 	canBeArrayLiteral,
 	canRewriteUndefined,
 	globalToCategory,
-	isBeingCached,
 	isModuleLevelScope,
 	isShadowed,
 	startsAStatement,
@@ -195,10 +194,9 @@ export default {
 					return;
 				}
 
-				// Check if it's module-level caching
 				const isModuleLevel = isModuleLevelScope(context, node);
-				if (!includeCached && isModuleLevel && isBeingCached(node)) {
-					return; // Safe - module level caching
+				if (!includeCached && isModuleLevel) {
+					return; // Safe - reached once, at module load
 				}
 
 				// Check for autofix opportunity

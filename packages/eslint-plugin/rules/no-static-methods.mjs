@@ -1,6 +1,5 @@
 
 import {
-	isBeingCached,
 	isModuleLevelScope,
 	isShadowed,
 	isRepeatable,
@@ -74,8 +73,8 @@ export default {
 				}
 
 				const isModuleLevel = isModuleLevelScope(context, node);
-				if (!includeCached && isModuleLevel && isBeingCached(node)) {
-					return; // Safe - module level caching
+				if (!includeCached && isModuleLevel) {
+					return; // Safe - reached once, at module load
 				}
 
 				// Check for autofix opportunity

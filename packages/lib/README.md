@@ -136,7 +136,7 @@ Type information resolves those correctly; without it, `names` in an ignore conf
 
 ### Module-Level Caching
 
-Reaching a primordial once, at module load, is the fix this reports, so it is not itself a finding. `includeCached` reports it anyway, which is what a package whose product *is* the caching needs to audit itself.
+Reaching a primordial at module load gets the pristine one, so module level is not a finding at all - not the global, the static, the prototype access, the instance method, or the spread. `includeCached` reports it anyway, which is what a package whose product *is* the caching needs to audit itself.
 
 ### Reaching a Cached Primordial
 

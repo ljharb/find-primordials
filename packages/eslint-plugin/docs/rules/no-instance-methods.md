@@ -24,6 +24,7 @@
 ## Module-Level Caching
 
 Reaching a primordial at module load gets the pristine one, whatever shape the reach takes, so module level is exempt outright - `$call.bind($push)` at the top of a file is a reach, and it is the fix.
+`no-globals` and `no-static-methods` exempt it on the same terms.
 `includeCached` reports it anyway, which is what a package whose product *is* the caching needs to lint itself - it is available on `no-globals` and `no-static-methods` too.
 
 Caching a method does not make reaching `.call` on it safe: `$push.call(arr, x)` reaches `Function.prototype.call` every time it runs, so `call`, `apply`, and `bind` are reported like any other `Function` method.
