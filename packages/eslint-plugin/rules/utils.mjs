@@ -7,6 +7,7 @@ import {
 	canBeArrayLiteral,
 	canRewriteUndefined,
 	describeType,
+	globalCategories,
 	globalToCategory,
 	isCalled,
 	isReevaluable,
@@ -34,6 +35,7 @@ export {
 	canBeArrayLiteral,
 	canRewriteUndefined,
 	describeType,
+	globalCategories,
 	globalToCategory,
 	isCalled,
 	isReevaluable,
@@ -200,9 +202,16 @@ export function isStaticMethodAccess(node) {
 	) {
 		const globalName = node.object.name;
 		const methodName = node.property.name;
-		const category = globalToCategory.get(globalName);
 
-		if (category && primordials[category]) {
+		/*
+		 * A global can answer for more than one category - `Uint8Array` is a `TypedArray`
+		 * and also owns the base64/hex API - so the one that owns this name is the one to
+		 * report, whichever it is.
+		 */
+		// every name in `allGlobals` was put there by a category, so it has at least one
+		const owners = /** @type {string[]} */ (globalCategories.get(globalName));
+		for (let i = 0; i < owners.length; i += 1) {
+			const category = owners[i];
 			const isStatic = primordials[category].staticMethods.includes(methodName);
 			const isStaticProp = primordials[category].staticProperties?.includes(methodName);
 

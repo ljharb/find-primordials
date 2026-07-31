@@ -169,6 +169,30 @@ test('utils.mjs - isStaticMethodAccess', (t) => {
 		st.end();
 	});
 
+	t.test('returns null when no category the global answers for owns the name', (st) => {
+		const node = {
+			object: { name: 'Object', type: 'Identifier' },
+			property: { name: 'notAStaticMethod', type: 'Identifier' },
+			type: 'MemberExpression',
+		};
+		st.equal(isStaticMethodAccess(node), null, 'a global with an unowned name is not a static access');
+		st.end();
+	});
+
+	t.test('picks the category that owns the name, of the several a global answers for', (st) => {
+		function accessOf(globalName, methodName) {
+			return isStaticMethodAccess({
+				object: { name: globalName, type: 'Identifier' },
+				property: { name: methodName, type: 'Identifier' },
+				type: 'MemberExpression',
+			});
+		}
+		st.equal(accessOf('Uint8Array', 'from')?.category, 'TypedArray', 'a %TypedArray% static is TypedArray');
+		st.equal(accessOf('Uint8Array', 'fromBase64')?.category, 'Uint8Array', 'a Uint8Array-only static is Uint8Array');
+		st.equal(accessOf('Int8Array', 'fromBase64'), null, 'and no other typed array has it');
+		st.end();
+	});
+
 	t.end();
 });
 

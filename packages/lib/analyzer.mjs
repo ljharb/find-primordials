@@ -14,6 +14,7 @@ import {
 	allGlobals,
 	allInstanceMethods,
 	ambiguousInstanceMethods,
+	globalCategories,
 	globalToCategory,
 	primordials,
 	resolveCategory,
@@ -637,11 +638,18 @@ function isStaticAccess(node) {
 	) {
 		const globalName = node.object.name;
 		const methodName = node.property.name;
-		const category = globalToCategory.get(globalName);
-		const prim = category && /** @type {{ staticMethods: string[], staticProperties?: string[] } | undefined} */ (
-			primordials[/** @type {keyof typeof primordials} */ (category)]
-		);
-		if (category && prim) {
+		/*
+		 * A global can answer for more than one category - `Uint8Array` is a `TypedArray`
+		 * and also owns the base64/hex API - so the one that owns this name is the one to
+		 * report, whichever it is.
+		 */
+		// every name in `allGlobals` was put there by a category, so it has at least one
+		const owners = /** @type {string[]} */ (globalCategories.get(globalName));
+		for (let i = 0; i < owners.length; i += 1) {
+			const category = owners[i];
+			const prim = /** @type {{ staticMethods: string[], staticProperties?: string[] }} */ (
+				primordials[/** @type {keyof typeof primordials} */ (category)]
+			);
 			if (prim.staticMethods.includes(methodName)) {
 				return {
 					category,

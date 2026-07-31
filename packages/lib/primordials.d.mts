@@ -22,8 +22,14 @@ export const allStaticMethods: Map<string, string[]>;
 /** Instance method name to the category names that own it. */
 export const allInstanceMethods: Map<string, string[]>;
 
-/** Global name to its category name. */
+/** Global name to its category name: the family it is named by, where it has more than one. */
 export const globalToCategory: Map<string, string>;
+
+/**
+ * Global name to every category name it answers for. `Uint8Array` is a `TypedArray` and
+ * also owns the base64/hex API that no other typed array has.
+ */
+export const globalCategories: Map<string, string[]>;
 
 /** The typed-array global names (`Int8Array`, `Uint8Array`, ...). */
 export const typedArrayGlobals: Set<string>;

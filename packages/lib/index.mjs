@@ -48,6 +48,7 @@ export {
 	allInstanceMethods,
 	allStaticMethods,
 	ambiguousInstanceMethods,
+	globalCategories,
 	globalToCategory,
 	primordials,
 	resolveCategory,

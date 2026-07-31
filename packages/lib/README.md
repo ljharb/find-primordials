@@ -120,6 +120,19 @@ Analyzes a single file and returns findings.
 - `includeUncertain` - Include uncertain findings (default: `true`)
 - `isSafeFile` - Function to determine if file is "safe" (default: checks for bin/test files)
 
+### What Counts as a Primordial
+
+The dataset covers ECMA-262 through ES2026, including Annex B, plus what the working draft has added since - `Atomics.pause`, `Iterator.zip`/`zipKeyed`, `Map`/`WeakMap`'s `getOrInsert`, and the `DisposableStack`/`AsyncDisposableStack`/`SuppressedError` that come with `using`.
+It is checked against the spec's own clause list, not against a runtime, so a method a given engine has not shipped is still covered and an engine extension like `Error.prepareStackTrace` is not.
+
+`Uint8Array` answers for two categories: it is a `TypedArray`, and it alone owns the base64/hex API, so `Uint8Array.fromBase64` is a `Uint8Array` finding while `Uint8Array.from` is a `TypedArray` one, and `Int8Array.fromBase64` is nothing at all.
+`globalToCategory` gives the family a global is named by; `globalCategories` gives every category it answers for.
+
+Annex B is included because those methods are as patchable as any other, but the names are ones ordinary objects use too: an untyped receiver calling `.compile()`, `.link()`, `.small()`, `.sub()`, or `.fixed()` reads as a `RegExp` or `String` primordial, since nothing else can say otherwise.
+Type information resolves those correctly; without it, `names` in an ignore config (or the rule's `ignoreNames`) is the way to quiet them.
+
+`constructor` is deliberately absent from every category, as are `message` and `name` on the error prototypes, and the `next`/`return` that each built-in iterator prototype defines for itself rather than inheriting from `%IteratorPrototype%`.
+
 ### Type Resolution
 
 A method name that more than one primordial owns - `join` is on both `Array` and `TypedArray`, `slice` on five - can only be pinned down by the receiver's type, so that is where a finding's certainty comes from.

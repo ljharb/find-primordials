@@ -256,6 +256,17 @@ test('typeCategories - every primordial a type can name', (t) => {
 		st.end();
 	});
 
+	t.test('a Uint8Array is a typed array and something more', (st) => {
+		/*
+		 * The base64/hex API is on `Uint8Array` alone, not on `%TypedArray%`, so a
+		 * `Uint8Array` answers for both and no other typed array answers for the former.
+		 */
+		st.deepEqual(typeCategories('Uint8Array'), ['Uint8Array', 'TypedArray'], 'answers for both');
+		st.deepEqual(typeCategories('Uint8Array<ArrayBufferLike>'), ['Uint8Array', 'TypedArray'], 'type arguments do not change that');
+		st.deepEqual(typeCategories('Int8Array'), ['TypedArray'], 'while another typed array answers only for the family');
+		st.end();
+	});
+
 	t.test('types that name nothing in particular', (st) => {
 		const table = [
 			'any', 'unknown', 'never', 'void', 'undefined', 'null', 'object', 'Object', '{}', '{ }', '', null, undefined,
@@ -290,6 +301,40 @@ test('typeCategories - every primordial a type can name', (t) => {
 		st.end();
 	});
 
+	t.end();
+});
+
+test('analyzeFile - a global that answers for more than one category', (t) => {
+	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'primordials-owners-'));
+	let counter = 0;
+
+	function staticFinding(code) {
+		counter += 1;
+		const testFile = path.join(tmpDir, `own${counter}.js`);
+		fs.writeFileSync(testFile, code);
+		return analyzeFile(testFile, { includeStatic: true }).findings.find((f) => f.type === 'staticMethod');
+	}
+
+	/*
+	 * `Uint8Array` is a `TypedArray` and also owns the base64/hex API, so which category a
+	 * static belongs to depends on the name, not just the global.
+	 */
+	t.equal(staticFinding('function fn(a) { return Uint8Array.from(a); }')?.category, 'TypedArray', 'a %TypedArray% static is TypedArray');
+	t.equal(staticFinding('function fn(s) { return Uint8Array.fromBase64(s); }')?.category, 'Uint8Array', 'a Uint8Array-only static is Uint8Array');
+	t.equal(staticFinding('function fn(s) { return Int8Array.fromBase64(s); }'), void undefined, 'and no other typed array has it');
+
+	// the base64 instance methods resolve the same way
+	function instanceCategory(type, method) {
+		counter += 1;
+		const testFile = path.join(tmpDir, `own${counter}.js`);
+		fs.writeFileSync(testFile, `/** @type {${type}} */\nvar bytes = new ${type}(0);\nfunction fn() { return bytes.${method}(); }`);
+		return analyzeFile(testFile, {}).findings.find((f) => f.name === method)?.category;
+	}
+	t.equal(instanceCategory('Uint8Array', 'toBase64'), 'Uint8Array', 'toBase64 on a Uint8Array is Uint8Array');
+	t.equal(instanceCategory('Uint8Array', 'join'), 'TypedArray', 'while join on one is still TypedArray');
+	t.equal(instanceCategory('Int8Array', 'toBase64'), void undefined, 'and another typed array has no toBase64 to reach');
+
+	fs.rmSync(tmpDir, { recursive: true });
 	t.end();
 });
 

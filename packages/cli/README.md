@@ -141,6 +141,9 @@ A finding is uncertain when that type could not be determined, and `--no-uncerta
 Every primordial resolves this way, not just arrays: a `Map` receiver resolves `.has()` to `Map`, a `Date` resolves `.getTime()` to `Date`, a `string` resolves `.slice()` to `String`.
 A receiver whose type owns no such method is not reported at all - a `CharSet` with its own `test` is not `RegExp.prototype.test`.
 
+Annex B counts too, and its method names are ones ordinary objects use: without type information, an untyped `.compile()` or `.link()` reads as `RegExp.prototype.compile` or `String.prototype.link`.
+Use `names` in an ignore config to quiet those.
+
 Types come from the file's own project: the nearest `tsconfig.json` at or above it, with the compiler options that config sets and alongside every other file it covers - the same view an editor has.
 So a project whose `tsconfig.json` covers the files being analyzed reports far fewer uncertain findings than one where it does not, since a file typed on its own cannot reach a type that only the project provides.
 

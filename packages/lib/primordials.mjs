@@ -86,6 +86,18 @@ export const primordials = {
 		],
 		staticMethods: ['isView'],
 	},
+	AsyncDisposableStack: {
+		globals: ['AsyncDisposableStack'],
+		instanceMethods: [
+			'adopt',
+			'defer',
+			'disposeAsync',
+			'move',
+			'use',
+		],
+		instanceProperties: ['disposed'],
+		staticMethods: [],
+	},
 	AsyncGenerator: {
 		globals: [],
 		instanceMethods: [
@@ -129,6 +141,7 @@ export const primordials = {
 			'load',
 			'notify',
 			'or',
+			'pause',
 			'store',
 			'sub',
 			'wait',
@@ -210,6 +223,7 @@ export const primordials = {
 			'getUTCMinutes',
 			'getUTCMonth',
 			'getUTCSeconds',
+			'getYear',
 			'setDate',
 			'setFullYear',
 			'setHours',
@@ -225,7 +239,9 @@ export const primordials = {
 			'setUTCMinutes',
 			'setUTCMonth',
 			'setUTCSeconds',
+			'setYear',
 			'toDateString',
+			'toGMTString',
 			'toISOString',
 			'toJSON',
 			'toLocaleDateString',
@@ -252,6 +268,18 @@ export const primordials = {
 		instanceMethods: [],
 		staticMethods: [],
 	},
+	DisposableStack: {
+		globals: ['DisposableStack'],
+		instanceMethods: [
+			'adopt',
+			'defer',
+			'dispose',
+			'move',
+			'use',
+		],
+		instanceProperties: ['disposed'],
+		staticMethods: [],
+	},
 	encodeURI: {
 		globals: ['encodeURI'],
 		instanceMethods: [],
@@ -269,6 +297,11 @@ export const primordials = {
 			'captureStackTrace',
 			'isError',
 		],
+	},
+	escape: {
+		globals: ['escape'],
+		instanceMethods: [],
+		staticMethods: [],
 	},
 	eval: {
 		globals: ['eval'],
@@ -347,7 +380,12 @@ export const primordials = {
 			'take',
 			'toArray',
 		],
-		staticMethods: ['from'],
+		staticMethods: [
+			'concat',
+			'from',
+			'zip',
+			'zipKeyed',
+		],
 	},
 	JSON: {
 		globals: ['JSON'],
@@ -367,6 +405,8 @@ export const primordials = {
 			'entries',
 			'forEach',
 			'get',
+			'getOrInsert',
+			'getOrInsertComputed',
 			'has',
 			'keys',
 			'set',
@@ -465,6 +505,10 @@ export const primordials = {
 	Object: {
 		globals: ['Object'],
 		instanceMethods: [
+			'__defineGetter__',
+			'__defineSetter__',
+			'__lookupGetter__',
+			'__lookupSetter__',
 			'hasOwnProperty',
 			'isPrototypeOf',
 			'propertyIsEnumerable',
@@ -472,6 +516,7 @@ export const primordials = {
 			'toString',
 			'valueOf',
 		],
+		instanceProperties: ['__proto__'],
 		staticMethods: [
 			'assign',
 			'create',
@@ -563,6 +608,7 @@ export const primordials = {
 	RegExp: {
 		globals: ['RegExp'],
 		instanceMethods: [
+			'compile',
 			'exec',
 			'test',
 			'toString',
@@ -619,16 +665,25 @@ export const primordials = {
 	String: {
 		globals: ['String'],
 		instanceMethods: [
+			'anchor',
 			'at',
+			'big',
+			'blink',
+			'bold',
 			'charAt',
 			'charCodeAt',
 			'codePointAt',
 			'concat',
 			'endsWith',
+			'fixed',
+			'fontcolor',
+			'fontsize',
 			'includes',
 			'indexOf',
 			'isWellFormed',
+			'italics',
 			'lastIndexOf',
+			'link',
 			'localeCompare',
 			'match',
 			'matchAll',
@@ -640,9 +695,14 @@ export const primordials = {
 			'replaceAll',
 			'search',
 			'slice',
+			'small',
 			'split',
 			'startsWith',
+			'strike',
+			'sub',
+			'substr',
 			'substring',
+			'sup',
 			'toLocaleLowerCase',
 			'toLocaleUpperCase',
 			'toLowerCase',
@@ -651,6 +711,8 @@ export const primordials = {
 			'toWellFormed',
 			'trim',
 			'trimEnd',
+			'trimLeft',
+			'trimRight',
 			'trimStart',
 			'valueOf',
 		],
@@ -659,6 +721,11 @@ export const primordials = {
 			'fromCodePoint',
 			'raw',
 		],
+	},
+	SuppressedError: {
+		globals: ['SuppressedError'],
+		instanceMethods: [],
+		staticMethods: [],
 	},
 	Symbol: {
 		globals: ['Symbol'],
@@ -672,7 +739,9 @@ export const primordials = {
 			'keyFor',
 		],
 		wellKnownSymbols: [
+			'asyncDispose',
 			'asyncIterator',
+			'dispose',
 			'hasInstance',
 			'isConcatSpreadable',
 			'iterator',
@@ -744,20 +813,44 @@ export const primordials = {
 			'buffer',
 			'byteLength',
 			'byteOffset',
+			'BYTES_PER_ELEMENT',
 			'length',
 		],
 		staticMethods: [
 			'from',
 			'of',
 		],
+		staticProperties: ['BYTES_PER_ELEMENT'],
 	},
 	TypeError: {
 		globals: ['TypeError'],
 		instanceMethods: [],
 		staticMethods: [],
 	},
+	/*
+	 * `Uint8Array` carries the base64/hex API on its own, not on `%TypedArray%`, so it is
+	 * a category of its own over the same global - `Int8Array.fromBase64` does not exist.
+	 */
+	Uint8Array: {
+		globals: ['Uint8Array'],
+		instanceMethods: [
+			'setFromBase64',
+			'setFromHex',
+			'toBase64',
+			'toHex',
+		],
+		staticMethods: [
+			'fromBase64',
+			'fromHex',
+		],
+	},
 	undefined: {
 		globals: ['undefined'],
+		instanceMethods: [],
+		staticMethods: [],
+	},
+	unescape: {
+		globals: ['unescape'],
 		instanceMethods: [],
 		staticMethods: [],
 	},
@@ -771,6 +864,8 @@ export const primordials = {
 		instanceMethods: [
 			'delete',
 			'get',
+			'getOrInsert',
+			'getOrInsertComputed',
 			'has',
 			'set',
 		],
@@ -801,26 +896,50 @@ export const allStaticMethods = new Map();
 export const allInstanceMethods = new Map();
 /** @type {Map<string, string>} globalName -> categoryName */
 export const globalToCategory = new Map();
+/**
+ * @type {Map<string, string[]>} globalName -> [categoryNames]
+ * A global can answer for more than one category: `Uint8Array` is a `TypedArray` and also
+ * carries the base64/hex API that no other typed array has.
+ */
+export const globalCategories = new Map();
 
-for (const [category, info] of Object.entries(primordials)) {
-	for (const global of info.globals) {
+/**
+ * Record which category owns a method name.
+ * @param {Map<string, string[]>} into - The map to add to
+ * @param {string[]} methods - The method names
+ * @param {string} category - The category that owns them
+ * @returns {void}
+ */
+function claimMethods(into, methods, category) {
+	for (let i = 0; i < methods.length; i += 1) {
+		const method = methods[i];
+		if (!into.has(method)) {
+			into.set(method, []);
+		}
+		into.get(method)?.push(category);
+	}
+}
+
+const categoryEntries = Object.entries(primordials);
+for (let c = 0; c < categoryEntries.length; c += 1) {
+	const category = categoryEntries[c][0];
+	const info = categoryEntries[c][1];
+
+	for (let g = 0; g < info.globals.length; g += 1) {
+		const global = info.globals[g];
 		allGlobals.add(global);
-		globalToCategory.set(global, category);
+		// the first category to claim a global is the family it is named by
+		if (!globalToCategory.has(global)) {
+			globalToCategory.set(global, category);
+		}
+		if (!globalCategories.has(global)) {
+			globalCategories.set(global, []);
+		}
+		globalCategories.get(global)?.push(category);
 	}
 
-	for (const method of info.staticMethods) {
-		if (!allStaticMethods.has(method)) {
-			allStaticMethods.set(method, []);
-		}
-		allStaticMethods.get(method)?.push(category);
-	}
-
-	for (const method of info.instanceMethods) {
-		if (!allInstanceMethods.has(method)) {
-			allInstanceMethods.set(method, []);
-		}
-		allInstanceMethods.get(method)?.push(category);
-	}
+	claimMethods(allStaticMethods, info.staticMethods, category);
+	claimMethods(allInstanceMethods, info.instanceMethods, category);
 }
 
 // TypedArray globals for type checking
@@ -872,8 +991,9 @@ const TYPE_CATEGORIES = /** @type {[RegExp, string[]][]} */ ([
 	[/\[\]$/, ['Array']],
 	[/^(?:readonly )?\[/, ['Array']],
 
-	// the buffer family
-	[/^(?:BigInt64|BigUint64|Float16|Float32|Float64|Int8|Int16|Int32|Uint8Clamped|Uint8|Uint16|Uint32)Array(?:<|$)/, ['TypedArray']],
+	// the buffer family; `Uint8Array` owns the base64/hex API no other typed array has
+	[/^Uint8Array(?:<|$)/, ['Uint8Array', 'TypedArray']],
+	[/^(?:BigInt64|BigUint64|Float16|Float32|Float64|Int8|Int16|Int32|Uint8Clamped|Uint16|Uint32)Array(?:<|$)/, ['TypedArray']],
 	[/^ArrayBuffer(?:<|$)/, ['ArrayBuffer']],
 	[/^SharedArrayBuffer(?:<|$)/, ['SharedArrayBuffer']],
 	[/^DataView(?:<|$)/, ['DataView']],
@@ -892,11 +1012,15 @@ const TYPE_CATEGORIES = /** @type {[RegExp, string[]][]} */ ([
 	[/^Async(?:Iterator|IterableIterator|IteratorObject)(?:<|$)/, ['AsyncIterator']],
 	[/^(?:Iterator|IterableIterator|IteratorObject|ArrayIterator|MapIterator|SetIterator|StringIterator|RegExpStringIterator)(?:<|$)/, ['Iterator']],
 
+	// the disposables, whose stacks carry their own methods
+	[/^DisposableStack$/, ['DisposableStack']],
+	[/^AsyncDisposableStack$/, ['AsyncDisposableStack']],
+
 	// the rest, including every built-in that inherits `Error.prototype`
 	[/^Promise(?:<|$)/, ['Promise']],
 	[/^RegExp$/, ['RegExp']],
 	[/^Date$/, ['Date']],
-	[/^(?:Aggregate|Eval|Range|Reference|Syntax|Type|URI)?Error$/, ['Error']],
+	[/^(?:Aggregate|Eval|Range|Reference|Suppressed|Syntax|Type|URI)?Error$/, ['Error']],
 	[/^Function$/, ['Function']],
 	[/^(?:new )?[(<][\s\S]*=>/, ['Function']],
 ]);
