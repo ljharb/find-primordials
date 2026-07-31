@@ -92,7 +92,9 @@ test('analyzeFile - global shadowing suppresses findings', (t) => {
 		['for-of var', 'function fn(o) { for (var Array of o) { return Array; } }'],
 		['for var', 'function fn() { for (var Array = 0; Array < 1;) { return Array; } }'],
 	];
-	for (const [name, code] of cases) {
+	for (let i = 0; i < cases.length; i += 1) {
+		const name = cases[i][0];
+		const code = cases[i][1];
 		t.notOk(hasGlobal(analyze(code, opts), 'Array'), `${name}: Array is shadowed, not reported`);
 	}
 

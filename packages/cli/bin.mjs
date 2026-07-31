@@ -84,8 +84,9 @@ function loadDirIgnore(dir) {
 	}
 
 	const ig = ignore();
-	for (const ignoreFile of ['.gitignore', '.npmignore']) {
-		const ignorePath = path.join(dir, ignoreFile);
+	const ignoreFiles = ['.gitignore', '.npmignore'];
+	for (let i = 0; i < ignoreFiles.length; i += 1) {
+		const ignorePath = path.join(dir, ignoreFiles[i]);
 		try {
 			const content = fs.readFileSync(ignorePath, 'utf8');
 			ig.add(content);
@@ -148,7 +149,8 @@ function collectFiles(inputPaths, extensions) {
 			return;
 		}
 
-		for (const entry of entries) {
+		for (let i = 0; i < entries.length; i += 1) {
+			const entry = entries[i];
 			const fullPath = path.join(dir, entry.name);
 
 			// Check if this path is ignored
@@ -225,7 +227,8 @@ function outputEslintFormat(findings) {
 
 	/** @type {{ [k: string]: Finding[] }} */
 	const byFile = {};
-	for (const finding of findings) {
+	for (let i = 0; i < findings.length; i += 1) {
+		const finding = findings[i];
 		if (!byFile[finding.file]) {
 			byFile[finding.file] = [];
 		}
@@ -235,10 +238,14 @@ function outputEslintFormat(findings) {
 	let certainCount = 0;
 	let uncertainCount = 0;
 
-	for (const [filePath, fileFindings] of Object.entries(byFile).sort()) {
+	const fileGroups = Object.entries(byFile).sort();
+	for (let g = 0; g < fileGroups.length; g += 1) {
+		const filePath = fileGroups[g][0];
+		const fileFindings = fileGroups[g][1];
 		console.log('');
 		console.log(filePath);
-		for (const finding of fileFindings) {
+		for (let i = 0; i < fileFindings.length; i += 1) {
+			const finding = fileFindings[i];
 			const line = String(finding.line).padStart(4); // eslint-disable-line no-magic-numbers
 			const col = String(finding.column).padEnd(4); // eslint-disable-line no-magic-numbers
 			const severity = finding.certainty === 'uncertain' ? 'warning' : 'error';
@@ -284,7 +291,8 @@ function outputTapFormat(findings, groupBy) {
 
 	/** @type {Record<string, Finding[]>} */
 	const grouped = {};
-	for (const finding of findings) {
+	for (let i = 0; i < findings.length; i += 1) {
+		const finding = findings[i];
 		const category = categoryLabel(finding);
 		const key = groupBy === 'type' ? category : finding.file;
 		if (!grouped[key]) {
@@ -293,12 +301,16 @@ function outputTapFormat(findings, groupBy) {
 		grouped[key].push(finding);
 	}
 
-	for (const [groupKey, groupFindings] of Object.entries(grouped).sort()) {
+	const groups = Object.entries(grouped).sort();
+	for (let g = 0; g < groups.length; g += 1) {
+		const groupKey = groups[g][0];
+		const groupFindings = groups[g][1];
 		if (groupKey !== currentGroup) {
 			console.log(`# ${groupKey}`);
 			currentGroup = groupKey;
 		}
-		for (const finding of groupFindings) {
+		for (let i = 0; i < groupFindings.length; i += 1) {
+			const finding = groupFindings[i];
 			testNum += 1;
 			if (finding.certainty === 'certain') {
 				certainCount += 1;
@@ -461,7 +473,8 @@ function applyFixesToFindings(filtered, options) {
 
 	/** @type {Map<string, Finding[]>} */
 	const findingsByFile = new Map();
-	for (const f of filtered) {
+	for (let i = 0; i < filtered.length; i += 1) {
+		const f = filtered[i];
 		if (f.file) {
 			if (!findingsByFile.has(f.file)) {
 				findingsByFile.set(f.file, []);
@@ -473,13 +486,13 @@ function applyFixesToFindings(filtered, options) {
 	// every key is seeded, so that `constructor` counts a fix rather than inheriting one
 	/** @type {Record<string, number>} */
 	const totals = {};
-	for (const kind of FIX_KINDS) {
-		totals[kind] = 0;
+	for (let i = 0; i < FIX_KINDS.length; i += 1) {
+		totals[FIX_KINDS[i]] = 0;
 	}
 
 	/** @type {Finding[]} */
 	const remaining = [];
-	for (const [filePath, fileFindings] of findingsByFile) {
+	findingsByFile.forEach((fileFindings, filePath) => {
 		let current = fileFindings;
 		let fixing = true;
 		for (let pass = 0; fixing && pass < MAX_FIX_PASSES; pass += 1) { // eslint-disable-line no-magic-numbers
@@ -487,17 +500,20 @@ function applyFixesToFindings(filtered, options) {
 			fixing = result.fixed;
 			if (fixing) {
 				fs.writeFileSync(filePath, result.output);
-				for (const kind of FIX_KINDS) {
-					totals[kind] += result.fixCounts[kind];
+				for (let i = 0; i < FIX_KINDS.length; i += 1) {
+					totals[FIX_KINDS[i]] += result.fixCounts[FIX_KINDS[i]];
 				}
 				// the rewrite moved every position recorded below it, so re-derive them
 				current = selectFindings(analyzeFiles([filePath], analyzeOptions).findings, values, ignoreConfig);
 			}
 		}
-		remaining.push(...current);
-	}
+		for (let i = 0; i < current.length; i += 1) {
+			remaining[remaining.length] = current[i];
+		}
+	});
 
-	for (const kind of FIX_KINDS) {
+	for (let i = 0; i < FIX_KINDS.length; i += 1) {
+		const kind = FIX_KINDS[i];
 		const count = totals[kind];
 		if (count > 0) {
 			console.log(`Fixed ${count} ${FIX_LABELS[kind]} issue${count === 1 ? '' : 's'}`); // eslint-disable-line no-magic-numbers
@@ -709,8 +725,8 @@ async function main() {
 
 	if (files.length === 0) {
 		// Clean up temp dirs before exiting
-		for (const dir of tempDirs) {
-			removeDir(dir);
+		for (let i = 0; i < tempDirs.length; i += 1) {
+			removeDir(tempDirs[i]);
 		}
 
 		console.error('Error: No matching files found');
@@ -729,8 +745,8 @@ async function main() {
 	const result = await analyzeFilesParallel(files, analyzeOptions);
 
 	// Report any parse errors
-	for (const error of result.errors) {
-		console.error(`Warning: ${error.file}: ${error.error}`);
+	for (let i = 0; i < result.errors.length; i += 1) {
+		console.error(`Warning: ${result.errors[i].file}: ${result.errors[i].error}`);
 	}
 
 	// Filter findings based on includeUncertain option and ignore config
@@ -748,8 +764,8 @@ async function main() {
 	outputResults(filtered, result, files, values);
 
 	// Clean up temp directories from remote repos
-	for (const dir of tempDirs) {
-		removeDir(dir);
+	for (let i = 0; i < tempDirs.length; i += 1) {
+		removeDir(tempDirs[i]);
 	}
 
 	// Set exit code for non-zero if any findings (don't call exit() to allow stdout to flush)

@@ -78,7 +78,10 @@ function makeLocalRepo(contents, fileName = 'src.js') {
 // Materialize a { relativePath: contents } map into a fresh temp directory.
 function makeTree(files) {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fp-bin-'));
-	for (const [rel, contents] of Object.entries(files)) {
+	const entries = Object.entries(files);
+	for (let i = 0; i < entries.length; i += 1) {
+		const rel = entries[i][0];
+		const contents = entries[i][1];
 		const full = path.join(dir, rel);
 		fs.mkdirSync(path.dirname(full), { recursive: true });
 		fs.writeFileSync(full, contents);
@@ -358,7 +361,8 @@ test('cloneRepos', (t) => {
 		st.ok(result.tempDirs.length > 0, 'temp dir was created');
 
 		// Clean up
-		for (const dir of result.tempDirs) {
+		for (let i = 0; i < result.tempDirs.length; i += 1) {
+			const dir = result.tempDirs[i];
 			removeDir(dir);
 		}
 

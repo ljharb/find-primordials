@@ -189,8 +189,8 @@ export function isCalled(node, parent) {
  * @returns {boolean}
  */
 function isModuleLevelScope(ancestors) {
-	for (const ancestor of ancestors) {
-		const { type } = ancestor;
+	for (let i = 0; i < ancestors.length; i += 1) {
+		const { type } = ancestors[i];
 		if (
 			type === 'FunctionDeclaration'
 			|| type === 'FunctionExpression'
@@ -730,7 +730,8 @@ function getNamesFromPattern(pattern, names) {
 	if (pattern.type === 'Identifier') {
 		names.add(pattern.name);
 	} else if (pattern.type === 'ObjectPattern') {
-		for (const prop of pattern.properties) {
+		for (let i = 0; i < pattern.properties.length; i += 1) {
+			const prop = pattern.properties[i];
 			if (prop.type === 'RestElement') {
 				getNamesFromPattern(prop.argument, names);
 			} else {
@@ -738,7 +739,8 @@ function getNamesFromPattern(pattern, names) {
 			}
 		}
 	} else if (pattern.type === 'ArrayPattern') {
-		for (const elem of pattern.elements) {
+		for (let i = 0; i < pattern.elements.length; i += 1) {
+			const elem = pattern.elements[i];
 			if (elem) {
 				if (elem.type === 'RestElement') {
 					getNamesFromPattern(elem.argument, names);
@@ -761,10 +763,10 @@ function getNamesFromPattern(pattern, names) {
  * @returns {boolean}
  */
 function varDeclListDeclaresName(declarations, name) {
-	for (const decl of declarations) {
+	for (let i = 0; i < declarations.length; i += 1) {
 		/** @type {Set<string>} */
 		const declNames = new Set();
-		getNamesFromPattern(decl.id, declNames);
+		getNamesFromPattern(declarations[i].id, declNames);
 		if (declNames.has(name)) {
 			return true;
 		}
@@ -781,8 +783,8 @@ function varDeclListDeclaresName(declarations, name) {
 function functionParamDeclaresName(params, name) {
 	/** @type {Set<string>} */
 	const paramNames = new Set();
-	for (const param of params) {
-		getNamesFromPattern(param, paramNames);
+	for (let i = 0; i < params.length; i += 1) {
+		getNamesFromPattern(params[i], paramNames);
 	}
 	return paramNames.has(name);
 }
@@ -804,8 +806,8 @@ function statementDeclaresName(stmt, name) {
 		return true;
 	}
 	if (stmt.type === 'ImportDeclaration') {
-		for (const spec of stmt.specifiers) {
-			if (spec.local?.name === name) {
+		for (let i = 0; i < stmt.specifiers.length; i += 1) {
+			if (stmt.specifiers[i].local?.name === name) {
 				return true;
 			}
 		}
@@ -820,8 +822,8 @@ function statementDeclaresName(stmt, name) {
  * @returns {boolean}
  */
 function blockDeclaresName(body, name) {
-	for (const stmt of body) {
-		if (statementDeclaresName(stmt, name)) {
+	for (let i = 0; i < body.length; i += 1) {
+		if (statementDeclaresName(body[i], name)) {
 			return true;
 		}
 	}
@@ -836,7 +838,8 @@ function blockDeclaresName(body, name) {
  */
 function isShadowedInScope(name, ancestors) {
 	// Walk through ancestors looking for declarations that shadow this name
-	for (const ancestor of ancestors) {
+	for (let i = 0; i < ancestors.length; i += 1) {
+		const ancestor = ancestors[i];
 		const { type } = ancestor;
 
 		// Check function parameters
@@ -918,8 +921,9 @@ function parseDirectiveRules(rulesStr) {
 	}
 	/** @type {Set<string>} */
 	const rules = new Set();
-	for (const rule of rulesStr.split(',')) {
-		const trimmed = rule.trim();
+	const named = rulesStr.split(',');
+	for (let i = 0; i < named.length; i += 1) {
+		const trimmed = named[i].trim();
 		if (trimmed.startsWith(PLUGIN_PREFIX)) {
 			rules.add(trimmed.slice(PLUGIN_PREFIX.length));
 		} else if (ALL_RULES.has(trimmed)) {
@@ -944,9 +948,7 @@ function addLineDisable(map, line, rules) {
 	} else {
 		const existing = map.get(line);
 		if (existing) {
-			for (const r of rules) {
-				existing.add(r);
-			}
+			rules.forEach((r) => existing.add(r));
 		}
 	}
 }
@@ -959,14 +961,15 @@ function addLineDisable(map, line, rules) {
  * @returns {void}
  */
 function closeMatchingRanges(rules, endLine, disabledRanges) {
-	for (const range of disabledRanges) {
+	for (let i = 0; i < disabledRanges.length; i += 1) {
+		const range = disabledRanges[i];
 		if (range.end === Infinity && range.rules !== null) {
 			let allMatch = true;
-			for (const r of rules) {
-				if (!range.rules.has(r)) {
+			rules.forEach((r) => {
+				if (!(/** @type {Set<string>} */ (range.rules)).has(r)) {
 					allMatch = false;
 				}
-			}
+			});
 			if (allMatch) {
 				range.end = endLine;
 			}
@@ -1048,8 +1051,8 @@ function parseDisableDirectives(comments) {
 	/** @type {DisableRange[]} */
 	const disabledRanges = [];
 
-	for (const comment of comments) {
-		disableAllStart = processDisableComment(comment, disabledLines, disabledRanges, disableAllStart);
+	for (let i = 0; i < comments.length; i += 1) {
+		disableAllStart = processDisableComment(comments[i], disabledLines, disabledRanges, disableAllStart);
 	}
 
 	// If disable-all is still open, extend to end of file
@@ -1086,7 +1089,8 @@ function isLineDisabled(state, line, ruleType) {
 		}
 	}
 	// Check range disables
-	for (const range of disabledRanges) {
+	for (let i = 0; i < disabledRanges.length; i += 1) {
+		const range = disabledRanges[i];
 		if (line >= range.start && line <= range.end) {
 			if (range.rules === null) {
 				return true;
@@ -1488,7 +1492,8 @@ export function analyzeFiles(filePaths, options = {}) {
 	const allFindings = [];
 	/** @type {AnalysisError[]} */
 	const errors = [];
-	for (const filePath of filePaths) {
+	for (let i = 0; i < filePaths.length; i += 1) {
+		const filePath = filePaths[i];
 		const isSafe = typeof checkSafe === 'function' ? checkSafe(filePath) : false;
 		const result = analyzeFile(filePath, { ...fileOptions, isSafe });
 		if (result.error) {
@@ -1625,7 +1630,8 @@ export function categoryLabel(finding) {
 export function groupByCategory(findings) {
 	/** @type {Record<string, Finding[]>} */
 	const grouped = {};
-	for (const finding of findings) {
+	for (let i = 0; i < findings.length; i += 1) {
+		const finding = findings[i];
 		const category = categoryLabel(finding);
 		if (!grouped[category]) {
 			grouped[category] = [];
@@ -1698,9 +1704,13 @@ export function formatAsTAP(findings, options = {}) {
 	let certainCount = 0;
 	let uncertainCount = 0;
 
-	for (const [category, categoryFindings] of Object.entries(grouped).sort()) {
+	const groups = Object.entries(grouped).sort();
+	for (let g = 0; g < groups.length; g += 1) {
+		const category = groups[g][0];
+		const categoryFindings = groups[g][1];
 		lines[lines.length] = `# ${category}`;
-		for (const finding of categoryFindings) {
+		for (let i = 0; i < categoryFindings.length; i += 1) {
+			const finding = categoryFindings[i];
 			testNum += 1; // eslint-disable-line no-magic-numbers
 			if (finding.certainty === CERTAINTY_CERTAIN) {
 				certainCount += 1; // eslint-disable-line no-magic-numbers
@@ -1745,8 +1755,8 @@ const FIX_KINDS = /** @type {const} */ ([
  */
 function emptyFixCounts() {
 	const counts = /** @type {Record<FixKind, number>} */ ({});
-	for (const kind of FIX_KINDS) {
-		counts[kind] = 0;
+	for (let i = 0; i < FIX_KINDS.length; i += 1) {
+		counts[FIX_KINDS[i]] = 0;
 	}
 	return counts;
 }
@@ -2110,8 +2120,8 @@ function getFixFor(node, finding, ctx) {
  * @returns {Fix | null}
  */
 function firstFix(node, candidates, ctx) {
-	for (const finding of candidates) {
-		const fix = getFixFor(node, finding, ctx);
+	for (let i = 0; i < candidates.length; i += 1) {
+		const fix = getFixFor(node, candidates[i], ctx);
 		if (fix && ctx.kinds.has(fix.kind)) {
 			return fix;
 		}
@@ -2134,7 +2144,8 @@ function collectFixes(content, ast, findings, kinds) {
 	 */
 	/** @type {Map<string, Finding[]>} */
 	const findingMap = new Map();
-	for (const f of findings) {
+	for (let i = 0; i < findings.length; i += 1) {
+		const f = findings[i];
 		const key = `${f.line}:${f.column}`;
 		if (!findingMap.has(key)) {
 			findingMap.set(key, []);
@@ -2184,7 +2195,8 @@ function applyFixList(content, fixes) {
 	/** @type {Fix[]} */
 	const kept = [];
 	let lastEnd = 0;
-	for (const fix of ordered) {
+	for (let i = 0; i < ordered.length; i += 1) {
+		const fix = ordered[i];
 		// an inner fix is dropped here; re-analyzing the output surfaces it again
 		if (fix.start >= lastEnd) {
 			kept[kept.length] = fix;

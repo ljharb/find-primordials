@@ -829,11 +829,11 @@ export const typedArrayGlobals = new Set(primordials.TypedArray.globals);
 // Methods that exist on multiple types and need type disambiguation
 /** @type {Set<string>} */
 export const ambiguousInstanceMethods = new Set();
-for (const [method, categories] of allInstanceMethods) {
+allInstanceMethods.forEach((categories, method) => {
 	if (categories.length > 1) {
 		ambiguousInstanceMethods.add(method);
 	}
-}
+});
 
 /*
  * Type strings that name nothing in particular. A receiver typed like this is no better
@@ -941,15 +941,15 @@ function splitUnion(typeStr) {
  * @returns {string[] | null} null when the type names nothing in particular
  */
 function categoriesForOne(typeStr) {
-	for (const pattern of UNKNOWN_TYPES) {
-		if (pattern.test(typeStr)) {
+	for (let i = 0; i < UNKNOWN_TYPES.length; i += 1) {
+		if (UNKNOWN_TYPES[i].test(typeStr)) {
 			return null;
 		}
 	}
 
-	for (const [pattern, categories] of TYPE_CATEGORIES) {
-		if (pattern.test(typeStr)) {
-			return categories;
+	for (let i = 0; i < TYPE_CATEGORIES.length; i += 1) {
+		if (TYPE_CATEGORIES[i][0].test(typeStr)) {
+			return TYPE_CATEGORIES[i][1]; // eslint-disable-line no-magic-numbers
 		}
 	}
 
@@ -1026,9 +1026,9 @@ export function typeCategories(typeStr) {
  * @returns {string | null} null when the type owns no such method
  */
 export function resolveCategory(typeCats, categories) {
-	for (const category of typeCats) {
-		if (categories.includes(category)) {
-			return category;
+	for (let i = 0; i < typeCats.length; i += 1) {
+		if (categories.includes(typeCats[i])) {
+			return typeCats[i];
 		}
 	}
 	return null;

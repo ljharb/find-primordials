@@ -780,7 +780,10 @@ test('no-instance-methods rule - options', (t) => {
 			'const methods = { push: [].push };': 'object literal',
 			'let cached; cached = [].push;': 'assignment',
 		};
-		for (const [code, desc] of Object.entries(cases)) {
+		const entries = Object.entries(cases);
+		for (let i = 0; i < entries.length; i += 1) {
+			const code = entries[i][0];
+			const desc = entries[i][1];
 			const messages = lint(code, { 'find-primordials/no-instance-methods': 'error' });
 			st.equal(messages.length, 0, `no errors for cached via ${desc}`);
 		}

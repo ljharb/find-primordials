@@ -72,8 +72,8 @@ export function normalizeIgnoreConfig(config) {
  * @param {string[]} patterns
  */
 function matchesAnyPattern(filePath, patterns) {
-	for (const pattern of patterns) {
-		if (minimatch(filePath, pattern, { dot: true, matchBase: true })) {
+	for (let i = 0; i < patterns.length; i += 1) {
+		if (minimatch(filePath, patterns[i], { dot: true, matchBase: true })) {
 			return true;
 		}
 	}
@@ -118,7 +118,8 @@ export function shouldIgnoreFinding(finding, ignoreConfig) {
 	}
 
 	// Check fine-grained rules
-	for (const rule of ignoreConfig.rules) {
+	for (let i = 0; i < ignoreConfig.rules.length; i += 1) {
+		const rule = ignoreConfig.rules[i];
 		// Rule must match file pattern (if specified) and have at least one filter
 		const fileMatches = rule.files.length === 0 || matchesAnyPattern(finding.file, rule.files);
 		const hasFilters = rule.types.size > 0 || rule.categories.size > 0 || rule.names.size > 0;

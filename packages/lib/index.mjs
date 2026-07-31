@@ -163,6 +163,18 @@ export function isConfigFile(filePath) {
 const packageJsonCache = new Map();
 
 /**
+ * Cache one lookup result for every directory the walk passed through.
+ * @param {string[]} dirs - The directories visited
+ * @param {PackageJSONCacheValue | null} result - What they all resolve to
+ * @returns {void}
+ */
+function cacheAll(dirs, result) {
+	for (let i = 0; i < dirs.length; i += 1) {
+		packageJsonCache.set(dirs[i], result);
+	}
+}
+
+/**
  * Find the nearest package.json for a file (cached)
  * @param {string} filePath
  */
@@ -180,9 +192,7 @@ function findPackageJson(filePath) {
 	while (dir !== root) {
 		if (packageJsonCache.has(dir)) {
 			const result = /** @type {PackageJSONCacheValue} */ (packageJsonCache.get(dir));
-			for (const v of visited) {
-				packageJsonCache.set(v, result);
-			}
+			cacheAll(visited, result);
 			return result;
 		}
 		visited[visited.length] = dir;
@@ -190,9 +200,7 @@ function findPackageJson(filePath) {
 		try {
 			const content = fs.readFileSync(pkgPath, 'utf8');
 			const result = { dir, pkg: JSON.parse(content) };
-			for (const v of visited) {
-				packageJsonCache.set(v, result);
-			}
+			cacheAll(visited, result);
 			return result;
 		} catch {
 			// Continue searching
@@ -200,9 +208,7 @@ function findPackageJson(filePath) {
 		dir = path.dirname(dir);
 	}
 
-	for (const v of visited) {
-		packageJsonCache.set(v, null);
-	}
+	cacheAll(visited, null);
 	return null;
 }
 
@@ -216,17 +222,18 @@ function getExportsFiles(exportsValue) {
 	if (typeof exportsValue === 'string') {
 		files[files.length] = exportsValue;
 	} else if (Array.isArray(exportsValue)) {
-		for (const item of exportsValue) {
-			const nested = getExportsFiles(item);
-			for (const f of nested) {
-				files[files.length] = f;
+		for (let i = 0; i < exportsValue.length; i += 1) {
+			const nested = getExportsFiles(exportsValue[i]);
+			for (let n = 0; n < nested.length; n += 1) {
+				files[files.length] = nested[n];
 			}
 		}
 	} else if (typeof exportsValue === 'object' && exportsValue !== null) {
-		for (const value of Object.values(exportsValue)) {
-			const nested = getExportsFiles(value);
-			for (const f of nested) {
-				files[files.length] = f;
+		const values = Object.values(exportsValue);
+		for (let i = 0; i < values.length; i += 1) {
+			const nested = getExportsFiles(values[i]);
+			for (let n = 0; n < nested.length; n += 1) {
+				files[files.length] = nested[n];
 			}
 		}
 	}
@@ -271,7 +278,9 @@ export function isBinFile(filePath) {
 
 	// If the file is also accessible via exports, it should be linted
 	if (pkg.exports) {
-		for (const f of getExportsFiles(pkg.exports)) {
+		const exported = getExportsFiles(pkg.exports);
+		for (let i = 0; i < exported.length; i += 1) {
+			const f = exported[i];
 			if (!f.includes('*') && path.normalize(f) === normalizedRelPath) {
 				return false;
 			}
@@ -327,8 +336,8 @@ export function isUnpublishedFile(filePath) {
 
 	// Check mandatory includes (root-level files only)
 	if (!relativePath.includes(path.sep)) {
-		for (const pattern of ALWAYS_PUBLISHED_PATTERNS) {
-			if (pattern.test(relativePath)) {
+		for (let i = 0; i < ALWAYS_PUBLISHED_PATTERNS.length; i += 1) {
+			if (ALWAYS_PUBLISHED_PATTERNS[i].test(relativePath)) {
 				return false;
 			}
 		}
@@ -344,9 +353,10 @@ export function isUnpublishedFile(filePath) {
 		mandatoryFiles.add(path.normalize(pkg.browser));
 	}
 	if (pkg.exports) {
-		for (const f of getExportsFiles(pkg.exports)) {
-			if (!f.includes('*')) {
-				mandatoryFiles.add(path.normalize(f));
+		const exported = getExportsFiles(pkg.exports);
+		for (let i = 0; i < exported.length; i += 1) {
+			if (!exported[i].includes('*')) {
+				mandatoryFiles.add(path.normalize(exported[i]));
 			}
 		}
 	}
@@ -362,8 +372,8 @@ export function isUnpublishedFile(filePath) {
 	}
 
 	// Check against files whitelist patterns
-	for (const rawPattern of pkg.files) {
-		const pattern = rawPattern.replace(/^\.\//, '').replace(/\/+$/, '');
+	for (let i = 0; i < pkg.files.length; i += 1) {
+		const pattern = pkg.files[i].replace(/^\.\//, '').replace(/\/+$/, '');
 
 		if (minimatch(relativePath, pattern, { dot: true })) {
 			return false;
