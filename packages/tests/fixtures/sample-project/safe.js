@@ -7,11 +7,9 @@ const $push = Array.prototype.push;
 const $keys = Object.keys;
 const $map = Array.prototype.map;
 
-// Safe: passing to a function at module level (like call-bind)
-function bind(fn) {
-	return fn.bind(null);
-}
-const boundPush = bind(Array.prototype.push);
+// Safe: binding at module level, so no call site has to reach for `.call` at runtime
+const $call = Function.prototype.call;
+const pushOne = $call.bind($push);
 
 // Safe: storing in an object at module level
 const cached = {
@@ -19,10 +17,10 @@ const cached = {
 	pop: Array.prototype.pop,
 };
 
-// Using cached values is fine
+// Safe: calling a bound primordial is a call, not a reach for `.call`
 function doStuff(arr, item) {
-	$push.call(arr, item);
+	pushOne(arr, item);
 	return $keys({ a: 1 });
 }
 
-module.exports = { doStuff, cached, boundPush };
+module.exports = { $map, cached, doStuff, pushOne };

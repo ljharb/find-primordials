@@ -429,6 +429,33 @@ test('analyzeFile - resolves a shared method name to the type that owns it', (t)
 	t.end();
 });
 
+test('analyzeFile - call/apply/bind reach Function.prototype like any other method', (t) => {
+	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'primordials-callbind-'));
+	let counter = 0;
+
+	function findingsFor(code) {
+		counter += 1;
+		const testFile = path.join(tmpDir, `cb${counter}.js`);
+		fs.writeFileSync(testFile, code);
+		return analyzeFile(testFile, {}).findings;
+	}
+
+	/*
+	 * A call-bound function carries no properties - you invoke it as `cached(a, b)`, never
+	 * `cached.call(a, b)` - so reaching `.call` on anything is reaching the primordial, even
+	 * when what it is reached on was itself cached.
+	 */
+	const called = findingsFor('var $push = [].push;\nfunction fn(arr, x) { return $push.call(arr, x); }');
+	t.equal(called.filter((f) => f.name === 'call').length, 1, '.call() on a cached primordial is reported'); // eslint-disable-line no-magic-numbers
+	t.equal(called.find((f) => f.name === 'call')?.category, 'Function', 'and resolves to Function');
+
+	t.equal(findingsFor('function fn(f, a) { return f.apply(null, a); }').filter((f) => f.name === 'apply').length, 1, '.apply() is reported'); // eslint-disable-line no-magic-numbers
+	t.equal(findingsFor('function fn(f) { return f.bind(null); }').filter((f) => f.name === 'bind').length, 1, '.bind() is reported'); // eslint-disable-line no-magic-numbers
+
+	fs.rmSync(tmpDir, { recursive: true });
+	t.end();
+});
+
 test('analyzeFile - a literal receiver names its own type', (t) => {
 	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'primordials-literals-'));
 	let counter = 0;

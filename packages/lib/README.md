@@ -133,6 +133,11 @@ Type information resolves those correctly; without it, `names` in an ignore conf
 
 `constructor` is deliberately absent from every category, as are `message` and `name` on the error prototypes, and the `next`/`return` that each built-in iterator prototype defines for itself rather than inheriting from `%IteratorPrototype%`.
 
+### Reaching a Cached Primordial
+
+Caching a method does not make reaching `.call` on it safe: `$push.call(arr, x)` reaches `Function.prototype.call` every time it runs, so `call`, `apply`, and `bind` are reported like any other `Function` method.
+A call-bound function carries no properties of its own - it is invoked as `cached(a, b)`, never `cached.call(a, b)` - so bind at module level and invoke the result directly, and no call site reaches a primordial.
+
 ### Type Resolution
 
 A method name that more than one primordial owns - `join` is on both `Array` and `TypedArray`, `slice` on five - can only be pinned down by the receiver's type, so that is where a finding's certainty comes from.

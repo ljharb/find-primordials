@@ -1407,9 +1407,6 @@ export function analyzeFile(filePath, options = {}) {
 		if (!allInstanceMethods.has(methodName)) {
 			return;
 		}
-		if (CALL_APPLY_BIND.has(methodName) && !isModuleLevel && node.object.type === 'Identifier') {
-			return;
-		}
 		const categories = /** @type {string[]} */ (allInstanceMethods.get(methodName));
 		const isAmbiguous = ambiguousInstanceMethods.has(methodName);
 		const methodInfo = getInstanceMethodInfo(node, categories, isAmbiguous);

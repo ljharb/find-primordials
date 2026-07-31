@@ -21,13 +21,6 @@ import {
 const CERTAINTY_CERTAIN = 'certain';
 const CERTAINTY_UNCERTAIN = 'uncertain';
 
-/** @type {Set<string>} */
-const SKIP_METHODS = new Set([
-	'call',
-	'apply',
-	'bind',
-]);
-
 /**
  * Get the autofix for an instance-method call, if any.
  * @param {ASTNode} node - The MemberExpression node
@@ -207,11 +200,6 @@ export default {
 
 				// Check if method name is ignored
 				if (ignoreNames.has(methodName)) {
-					return;
-				}
-
-				// Skip .call/.apply/.bind - could be on cached functions
-				if (SKIP_METHODS.has(methodName)) {
 					return;
 				}
 

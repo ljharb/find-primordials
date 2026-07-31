@@ -731,11 +731,15 @@ test('no-instance-methods rule - options', (t) => {
 		st.end();
 	});
 
-	t.test('skips call/apply/bind methods', (st) => {
-		const code = 'function fn(f) { return f.call(null); }';
-		const messages = lint(code, { 'find-primordials/no-instance-methods': 'error' });
+	t.test('reports call/apply/bind, which reach Function.prototype like any other method', (st) => {
+		/*
+		 * A call-bound function carries no properties - you invoke it as `cached(a, b)`, never
+		 * `cached.call(a, b)` - so a `.call` on anything is a reach for the primordial.
+		 */
+		const messages = lint('function fn(f) { return f.call(null); }', { 'find-primordials/no-instance-methods': 'error' });
 
-		st.equal(messages.length, 0, 'no errors for .call()');
+		st.equal(messages.length, 1, 'reports .call()');
+		st.ok(messages[0].message.includes('call'), 'names the method');
 		st.end();
 	});
 
