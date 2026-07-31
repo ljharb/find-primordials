@@ -1427,8 +1427,9 @@ export function analyzeFile(filePath, options = {}) {
 		}
 
 		/*
-		 * Reaching a primordial once, at module load, is the fix this reports - so it is not
-		 * itself reported, unless the caching is what you came to look at.
+		 * Reaching a primordial at module load gets the pristine one, whatever shape the
+		 * reach takes - `$call.bind($push)` is a reach, and it is the fix. So module level
+		 * is exempt outright, not only where the immediate parent looks like caching.
 		 */
 		if (!includeCached && isModuleLevel) {
 			return;

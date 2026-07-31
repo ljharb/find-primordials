@@ -2,6 +2,7 @@
 import {
 	isBeingCached,
 	isModuleLevelScope,
+	isShadowed,
 	isRepeatable,
 	isStaticMethodAccess,
 } from '#/rules/utils';
@@ -56,6 +57,11 @@ export default {
 			MemberExpression(node) {
 				const staticAccess = isStaticMethodAccess(node);
 				if (!staticAccess) {
+					return;
+				}
+
+				// a parameter or local called `Object` is not `Object`
+				if (isShadowed(context, node, staticAccess.globalName)) {
 					return;
 				}
 

@@ -9,6 +9,8 @@ import {
 	isPrototypeAccess,
 	isReevaluable,
 	isRepeatable,
+	isShadowed,
+	isStaticMethodAccess,
 	literalCategories,
 	literalIndex,
 	resolveCategory,
@@ -88,6 +90,10 @@ function getInstanceMethodFix(node, methodName, certainty, context) {
  * @returns {boolean}
  */
 function handlePrototypeAccess(context, node, protoAccess, includeCached) {
+	if (isShadowed(context, node, protoAccess.globalName)) {
+		return true; // a local `Array` is not `Array`
+	}
+
 	const isModuleLevel = isModuleLevelScope(context, node);
 	if (!includeCached && isModuleLevel && isBeingCached(node)) {
 		return true; // Safe - module level caching
@@ -193,6 +199,14 @@ export default {
 					return;
 				}
 
+				/*
+				 * `Object.keys` is a static access, not `Map.prototype.keys` reached on a
+				 * receiver that happens to be named `Object`.
+				 */
+				if (isStaticMethodAccess(node)) {
+					return;
+				}
+
 				// Check for instance method access
 				if (node.property.type !== 'Identifier') {
 					return;
@@ -240,10 +254,13 @@ export default {
 					return;
 				}
 
-				// Check if at module level and being cached
+				/*
+				 * Reaching a primordial at module load gets the pristine one, whatever shape
+				 * the reach takes - `$call.bind($push)` is a reach, and it is the fix.
+				 */
 				const isModuleLevel = isModuleLevelScope(context, node);
-				if (!includeCached && isModuleLevel && isBeingCached(node)) {
-					return; // Safe - module level caching
+				if (!includeCached && isModuleLevel) {
+					return; // Safe - reached once, at module load
 				}
 
 				if (result.certainty === CERTAINTY_UNCERTAIN && allowUncertain) {

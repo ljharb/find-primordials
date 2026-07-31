@@ -194,6 +194,33 @@ test('no-instance-methods - a data property named after a method is not a method
 	t.end();
 });
 
+test('the rules do not report a global something else declared', (t) => {
+	/*
+	 * A parameter or local named `Array` is not `Array`, so nothing it is reached through
+	 * is a primordial - which the analyzer has always known and the rules did not.
+	 */
+	t.equal(lint('function f(Array) { return Array; }', { 'find-primordials/no-globals': 'error' }).length, 0, 'no-globals'); // eslint-disable-line no-magic-numbers
+	t.equal(lint('function f(Array) { return Array.prototype.push; }', { 'find-primordials/no-instance-methods': 'error' }).length, 0, 'no-instance-methods, on a prototype access'); // eslint-disable-line no-magic-numbers
+	t.equal(lint('function f(Object) { return Object.keys({}); }', { 'find-primordials/no-static-methods': 'error' }).length, 0, 'no-static-methods'); // eslint-disable-line no-magic-numbers
+
+	// and a name nothing declared is still the global
+	t.equal(lint('function f() { return new Float16Array(0); }', { 'find-primordials/no-globals': 'error' }).length, 1, 'an undeclared global is still reported'); // eslint-disable-line no-magic-numbers
+
+	t.end();
+});
+
+test('no-instance-methods - a static access is not an instance method', (t) => {
+	/*
+	 * `keys`, `values`, and `entries` are `Map` and `Set` instance methods as well as
+	 * `Object` statics, so the receiver being the `Object` global is what tells them apart.
+	 */
+	const RULES = { 'find-primordials/no-instance-methods': 'error' };
+	t.equal(lint('function f(o) { return Object.keys(o); }', RULES).length, 0, 'Object.keys is not Map#keys'); // eslint-disable-line no-magic-numbers
+	t.equal(lint('function f(o) { return Object.entries(o); }', RULES).length, 0, 'Object.entries is not Map#entries'); // eslint-disable-line no-magic-numbers
+	t.equal(lint('function f(m) { return m.keys(); }', RULES).length, 1, 'while a receiver that is not a global still is'); // eslint-disable-line no-magic-numbers
+	t.end();
+});
+
 test('includeCached reports what module-level caching hides', (t) => {
 	/*
 	 * Caching at module load is the fix these rules report, so it is not itself reported -
@@ -570,12 +597,10 @@ test('no-globals rule - edge cases', (t) => {
 	});
 
 	t.test('skips parameter named like global', (st) => {
-		// The rule currently reports parameter usage since it doesn't track shadowing
 		const code = 'function fn(Array) { return Array; }';
 		const messages = lint(code, { 'find-primordials/no-globals': 'error' });
 
-		// Note: rule reports usage of "Array" identifier, even if it's a parameter
-		st.equal(messages.length, 1, 'reports Array identifier usage');
+		st.equal(messages.length, 0, 'a parameter named `Array` shadows the global');
 		st.end();
 	});
 
@@ -587,13 +612,11 @@ test('no-globals rule - edge cases', (t) => {
 		st.end();
 	});
 
-	t.test('skips local var declaration but reports usage', (st) => {
-		// The rule skips the declaration but reports usage of the identifier
+	t.test('skips a local declaration and its usage', (st) => {
 		const code = 'function fn() { var Array = 1; return Array; }';
 		const messages = lint(code, { 'find-primordials/no-globals': 'error' });
 
-		// The usage of Array in return statement is reported
-		st.equal(messages.length, 1, 'reports Array identifier usage');
+		st.equal(messages.length, 0, 'a local named `Array` shadows the global');
 		st.end();
 	});
 
@@ -842,6 +865,8 @@ function makeMemberCall(objectName, methodName) {
 		callee: node,
 		type: 'CallExpression',
 	};
+	// module level is exempt outright, so the call has to sit inside a function
+	node.parent.parent = { type: 'FunctionDeclaration' };
 	return node;
 }
 
@@ -966,7 +991,7 @@ test('no-instance-methods - additional branches', (t) => {
 
 	t.test('honors ignoreCategories for a type-detected category', (st) => {
 		// charAt is a String method, but on an array literal the detected category becomes Array
-		const messages = lint('[1, 2].charAt(0);', {
+		const messages = lint('function f() { return [1, 2].charAt(0); }', {
 			'find-primordials/no-instance-methods': ['error', { ignoreCategories: ['Array'] }],
 		});
 		st.equal(messages.length, 0, 'the Array detected-category is ignored');
@@ -975,12 +1000,12 @@ test('no-instance-methods - additional branches', (t) => {
 		 * `at` is on Array, String, and TypedArray, so the name alone is not ignorable -
 		 * only the category the array literal resolves it to is.
 		 */
-		const resolved = lint('[1, 2].at(0);', {
+		const resolved = lint('function f() { return [1, 2].at(0); }', {
 			'find-primordials/no-instance-methods': ['error', { ignoreCategories: ['Array'] }],
 		});
 		st.equal(resolved.length, 0, 'and so is one an ambiguous name resolved to');
 
-		const notIgnored = lint('[1, 2].at(0);', {
+		const notIgnored = lint('function f() { return [1, 2].at(0); }', {
 			'find-primordials/no-instance-methods': ['error', { ignoreCategories: ['Map'] }],
 		});
 		st.equal(notIgnored.length, 1, 'while an unrelated category ignores nothing');

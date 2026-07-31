@@ -8,6 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const {
 	getTypeFromServices,
 	isBeingCached,
+	isShadowed,
 	isModuleLevelScope,
 	isPrototypeAccess,
 	isStaticMethodAccess,
@@ -192,6 +193,30 @@ test('utils.mjs - isStaticMethodAccess', (t) => {
 		st.equal(accessOf('Int8Array', 'fromBase64'), null, 'and no other typed array has it');
 		st.end();
 	});
+
+	t.end();
+});
+
+test('utils.mjs - isShadowed', (t) => {
+	function contextWith(scope) {
+		return { sourceCode: { getScope: () => scope } };
+	}
+	const node = { type: 'Identifier' };
+
+	const declared = { upper: undefined, variables: [{ defs: [{}], name: 'Array' }] };
+	t.equal(isShadowed(contextWith(declared), node, 'Array'), true, 'a declared name shadows');
+
+	const builtin = { upper: undefined, variables: [{ defs: [], name: 'Array' }] };
+	t.equal(isShadowed(contextWith(builtin), node, 'Array'), false, 'a builtin, which nothing declares, does not');
+
+	const inner = { upper: declared, variables: [] };
+	t.equal(isShadowed(contextWith(inner), node, 'Array'), true, 'an enclosing scope is searched too');
+
+	// a name no scope knows is not shadowed either
+	t.equal(isShadowed(contextWith({ upper: undefined, variables: [] }), node, 'Array'), false, 'an unknown name is not shadowed');
+
+	// and a parser with no scope analysis at all cannot say it is
+	t.equal(isShadowed({ sourceCode: {} }, node, 'Array'), false, 'no scope analysis means no shadowing');
 
 	t.end();
 });

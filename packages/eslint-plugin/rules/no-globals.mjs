@@ -6,6 +6,7 @@ import {
 	globalToCategory,
 	isBeingCached,
 	isModuleLevelScope,
+	isShadowed,
 	startsAStatement,
 	voidNeedsParens,
 } from '#/rules/utils';
@@ -176,6 +177,11 @@ export default {
 				}
 
 				if (!allGlobals.has(node.name)) {
+					return;
+				}
+
+				// a parameter or local called `Array` is not `Array`
+				if (isShadowed(context, node, node.name)) {
 					return;
 				}
 

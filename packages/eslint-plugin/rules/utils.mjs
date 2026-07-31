@@ -79,6 +79,14 @@ export {
  * @typedef {object} SourceCode
  * @property {ParserServices} [parserServices]
  * @property {(node: ASTNode) => string} getText
+ * @property {(node: ASTNode) => Scope} [getScope]
+ */
+
+/**
+ * The slice of an ESLint scope the shadowing check reads.
+ * @typedef {object} Scope
+ * @property {{ name: string, defs: unknown[] }[]} variables
+ * @property {Scope | undefined} upper
  */
 
 /**
@@ -227,6 +235,27 @@ export function isStaticMethodAccess(node) {
 	}
 
 	return null;
+}
+
+/**
+ * Whether a name resolves to something a program declared, rather than to the global.
+ * A parameter called `Array` is not `Array`.
+ * @param {RuleContext} context - The rule context
+ * @param {ASTNode} node - A node in the scope to resolve from
+ * @param {string} name - The name to resolve
+ * @returns {boolean}
+ */
+export function isShadowed(context, node, name) {
+	let scope = context.sourceCode.getScope?.(node);
+	while (scope) {
+		const variable = scope.variables.find((v) => v.name === name);
+		if (variable) {
+			// a builtin sits in the global scope with nothing declaring it
+			return variable.defs.length > 0;
+		}
+		scope = scope.upper;
+	}
+	return false;
 }
 
 /**
